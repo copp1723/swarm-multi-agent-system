@@ -184,6 +184,35 @@
                 
                 this.setupEventListeners();
                 this.setupUIEventListeners();
+                this.loadAgents();
+            }
+            
+            async loadAgents() {
+                try {
+                    const response = await fetch('/api/agents/');
+                    const data = await response.json();
+                    
+                    if (data.success && data.data.agents) {
+                        this.agents = {};
+                        data.data.agents.forEach(agent => {
+                            this.agents[agent.agent_id] = {
+                                agent_name: agent.name,
+                                description: agent.description,
+                                capabilities: agent.capabilities,
+                                status: 'idle',
+                                current_task: null,
+                                progress: 0,
+                                last_activity: new Date().toISOString()
+                            };
+                        });
+                        
+                        this.renderAgentGrid();
+                        this.updateAgentSelect();
+                        console.log('Loaded agents:', Object.keys(this.agents));
+                    }
+                } catch (error) {
+                    console.error('Failed to load agents:', error);
+                }
             }
             
             setupEventListeners() {
@@ -331,6 +360,7 @@
                 
                 const statusClass = `status-${agent.status}`;
                 const progress = agent.progress * 100;
+                const connectedUsers = agent.connected_users ? agent.connected_users.length : 0;
                 
                 card.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
@@ -348,7 +378,7 @@
                         </div>
                     </div>
                     <div class="flex justify-between text-sm text-gray-500">
-                        <span>${agent.connected_users.length} users</span>
+                        <span>${connectedUsers} users</span>
                         <span>Last: ${new Date(agent.last_activity).toLocaleTimeString()}</span>
                     </div>
                 `;
