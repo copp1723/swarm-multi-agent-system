@@ -1,0 +1,334 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Code Quality and Security Checks
+  quality-checks:
+    runs-on: ubuntu-latest
+    name: Code Quality & Security
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black flake8 isort mypy bandit safety
+        
+    - name: Code formatting check (Black)
+      run: black --check --diff src/ tests/
+      
+    - name: Import sorting check (isort)
+      run: isort --check-only --diff src/ tests/
+      
+    - name: Linting (flake8)
+      run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+      
+    - name: Type checking (mypy)
+      run: mypy src/ --ignore-missing-imports --no-strict-optional
+      
+    - name: Security scan (Bandit)
+      run: bandit -r src/ -f json -o bandit-report.json || true
+      
+    - name: Dependency security check (Safety)
+      run: safety check --json --output safety-report.json || true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # Unit and Integration Tests
+  test:
+    runs-on: ubuntu-latest
+    name: Tests
+    needs: quality-checks
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration]
+        
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_swarm_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Set up test environment
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_swarm_db
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key-for-ci-only
+        OPENROUTER_API_KEY: test-openrouter-key
+        SUPERMEMORY_API_KEY: test-supermemory-key
+        MAILGUN_API_KEY: test-mailgun-key
+        MAILGUN_DOMAIN: test.example.com
+        DEBUG: False
+      run: |
+        echo "Test environment configured"
+        
+    - name: Run unit tests
+      if: matrix.test-type == 'unit'
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_swarm_db
+        SECRET_KEY: test-secret-key-for-ci-only
+      run: |
+        pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+        
+    - name: Run integration tests
+      if: matrix.test-type == 'integration'
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_swarm_db
+        SECRET_KEY: test-secret-key-for-ci-only
+        OPENROUTER_API_KEY: test-openrouter-key
+        SUPERMEMORY_API_KEY: test-supermemory-key
+        MAILGUN_API_KEY: test-mailgun-key
+        MAILGUN_DOMAIN: test.example.com
+      run: |
+        pytest tests/integration/ -v --cov=src --cov-report=xml --cov-append
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: matrix.test-type == 'unit'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}
+        path: |
+          htmlcov/
+          coverage.xml
+          pytest-report.xml
+
+  # Docker Build and Security Scan
+  docker-build:
+    runs-on: ubuntu-latest
+    name: Docker Build & Scan
+    needs: [quality-checks, test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: swarm-agents:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: swarm-agents:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Smoke Tests
+  smoke-test:
+    runs-on: ubuntu-latest
+    name: Smoke Tests
+    needs: docker-build
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_swarm_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build and run application
+      run: |
+        docker build -t swarm-agents:test .
+        docker run -d --name swarm-test \
+          --network host \
+          -e DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_swarm_db \
+          -e SECRET_KEY=test-secret-key \
+          -e OPENROUTER_API_KEY=test-key \
+          -e DEBUG=False \
+          swarm-agents:test
+          
+    - name: Wait for application startup
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:5002/health; do sleep 2; done'
+        
+    - name: Run smoke tests
+      run: |
+        # Test health endpoint
+        curl -f http://localhost:5002/health
+        
+        # Test API endpoints
+        curl -f http://localhost:5002/api/config
+        
+        # Test authentication endpoints
+        curl -f -X POST http://localhost:5002/api/auth/register \
+          -H "Content-Type: application/json" \
+          -d '{"username":"testuser","email":"test@example.com","password":"testpass123","confirm_password":"testpass123"}' || true
+          
+    - name: Check application logs
+      if: always()
+      run: docker logs swarm-test
+      
+    - name: Cleanup
+      if: always()
+      run: |
+        docker stop swarm-test || true
+        docker rm swarm-test || true
+
+  # Deploy to Staging (on main branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [quality-checks, test, docker-build, smoke-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    environment:
+      name: staging
+      url: https://swarm-multi-agent-system.onrender.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to Render
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      run: |
+        curl -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"clearCache": false}'
+          
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for deployment to complete..."
+        sleep 60
+        
+    - name: Verify deployment
+      run: |
+        timeout 120 bash -c 'until curl -f https://swarm-multi-agent-system.onrender.com/health; do sleep 10; done'
+        echo "Deployment verified successfully!"
+
+  # Notify on Success/Failure
+  notify:
+    runs-on: ubuntu-latest
+    name: Notify Results
+    needs: [quality-checks, test, docker-build, smoke-test, deploy-staging]
+    if: always()
+    
+    steps:
+    - name: Notify success
+      if: ${{ needs.quality-checks.result == 'success' && needs.test.result == 'success' && needs.docker-build.result == 'success' && needs.smoke-test.result == 'success' }}
+      run: |
+        echo "✅ All CI/CD checks passed successfully!"
+        echo "🚀 Application is ready for production"
+        
+    - name: Notify failure
+      if: ${{ needs.quality-checks.result == 'failure' || needs.test.result == 'failure' || needs.docker-build.result == 'failure' || needs.smoke-test.result == 'failure' }}
+      run: |
+        echo "❌ CI/CD pipeline failed"
+        echo "🔍 Check the failed jobs for details"
+        exit 1
+

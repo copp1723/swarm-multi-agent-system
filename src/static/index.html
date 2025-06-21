@@ -3,24 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swarm Multi-Agent System</title>
+    <title>Swarm Multi-Agent System v2.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3B82F6',
-                        secondary: '#1E40AF',
-                        accent: '#F59E0B',
-                        success: '#10B981',
-                        error: '#EF4444',
-                        warning: '#F59E0B'
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         .agent-card {
             transition: all 0.3s ease;
@@ -29,819 +14,521 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
-        .message-bubble {
-            animation: slideIn 0.3s ease-out;
+        .status-idle { @apply bg-gray-100 text-gray-800; }
+        .status-thinking { @apply bg-yellow-100 text-yellow-800; }
+        .status-working { @apply bg-blue-100 text-blue-800; }
+        .status-collaborating { @apply bg-green-100 text-green-800; }
+        .status-error { @apply bg-red-100 text-red-800; }
+        
+        .message-user { @apply bg-blue-500 text-white ml-auto; }
+        .message-agent { @apply bg-gray-200 text-gray-800 mr-auto; }
+        .message-system { @apply bg-yellow-100 text-yellow-800 mx-auto text-center; }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        
+        .connection-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
         }
-        .loading-dots {
-            animation: pulse 1.5s infinite;
-        }
-        .error-shake {
-            animation: shake 0.5s ease-in-out;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
+        .connected { @apply bg-green-500; }
+        .disconnected { @apply bg-red-500; }
+        .connecting { @apply bg-yellow-500; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200">
+    <header class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
+            <div class="flex justify-between items-center py-4">
                 <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <h1 class="text-2xl font-bold text-gray-900">Swarm Agents</h1>
-                        <p class="text-sm text-gray-500">Multi-Agent Collaboration System</p>
-                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">Swarm Multi-Agent System</h1>
+                    <span class="ml-3 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">v2.0</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div id="status-indicator" class="flex items-center space-x-2">
-                        <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
-                        <span class="text-sm text-gray-500">Connecting...</span>
+                    <div class="flex items-center">
+                        <span class="connection-indicator" id="connectionIndicator"></span>
+                        <span id="connectionStatus" class="text-sm text-gray-600">Connecting...</span>
                     </div>
+                    <button id="authBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        Login
+                    </button>
                 </div>
             </div>
         </div>
     </header>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <!-- Sidebar - Agent Selection -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Available Agents</h2>
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- System Status -->
+        <div class="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-sm font-medium text-gray-500">Connected Clients</div>
+                <div class="text-2xl font-bold text-gray-900" id="connectedClients">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-sm font-medium text-gray-500">Active Rooms</div>
+                <div class="text-2xl font-bold text-gray-900" id="activeRooms">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-sm font-medium text-gray-500">Working Agents</div>
+                <div class="text-2xl font-bold text-gray-900" id="workingAgents">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-sm font-medium text-gray-500">Total Messages</div>
+                <div class="text-2xl font-bold text-gray-900" id="totalMessages">0</div>
+            </div>
+        </div>
+
+        <!-- Agent Grid -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Available Agents</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="agentGrid">
+                <!-- Agent cards will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Chat Area -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b">
+                        <h3 class="text-lg font-medium text-gray-900">Agent Chat</h3>
+                        <div class="mt-2 flex space-x-2">
+                            <select id="selectedAgent" class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select an agent...</option>
+                            </select>
+                            <button id="collaborateBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                Start Collaboration
+                            </button>
+                        </div>
+                    </div>
                     
-                    <!-- Agent List -->
-                    <div id="agents-list" class="space-y-3">
-                        <div class="text-center py-8">
-                            <div class="loading-dots text-gray-400">Loading agents...</div>
+                    <!-- Messages -->
+                    <div class="h-96 overflow-y-auto p-4 space-y-4" id="chatMessages">
+                        <div class="text-center text-gray-500 py-8">
+                            Select an agent to start chatting
                         </div>
                     </div>
-
-                    <!-- Model Selection -->
-                    <div class="mt-6 pt-6 border-t border-gray-200">
-                        <label for="model-select" class="block text-sm font-medium text-gray-700 mb-2">
-                            AI Model
-                        </label>
-                        <select id="model-select" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                            <option value="">Loading models...</option>
-                        </select>
+                    
+                    <!-- Message Input -->
+                    <div class="p-4 border-t">
+                        <div class="flex space-x-2">
+                            <input type="text" id="messageInput" placeholder="Type your message..." 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <button id="sendBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                Send
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Main Chat Area -->
-            <div class="lg:col-span-3">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex flex-col">
-                    <!-- Chat Header -->
-                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-                        <div id="chat-header" class="flex items-center justify-between">
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900">Select an Agent</h3>
-                                <p class="text-sm text-gray-500">Choose an agent from the sidebar to start chatting</p>
-                            </div>
-                            <button id="clear-chat" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors" style="display: none;">
-                                Clear Chat
-                            </button>
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <!-- Active Collaborations -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b">
+                        <h3 class="text-lg font-medium text-gray-900">Active Collaborations</h3>
+                    </div>
+                    <div class="p-4">
+                        <div id="collaborationsList" class="space-y-2">
+                            <div class="text-gray-500 text-sm">No active collaborations</div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Messages Area -->
-                    <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-4">
-                        <div id="welcome-message" class="text-center py-12">
-                            <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.959 8.959 0 01-4.906-1.681L3 21l2.681-5.094A8.959 8.959 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Welcome to Swarm Agents</h3>
-                            <p class="text-gray-600 max-w-md mx-auto">Select an agent from the sidebar to start a conversation. Each agent has specialized capabilities to help you with different tasks.</p>
-                        </div>
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b">
+                        <h3 class="text-lg font-medium text-gray-900">Recent Activity</h3>
                     </div>
-
-                    <!-- Agent Suggestions -->
-                    <div id="agent-suggestions" class="px-6 py-2 border-t border-gray-200 bg-blue-50" style="display: none;">
-                        <div class="text-xs font-medium text-blue-800 mb-2">💡 Suggested Agents</div>
-                        <div id="suggestions-list" class="flex flex-wrap gap-2"></div>
-                    </div>
-
-                    <!-- Input Area -->
-                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-                        <div class="flex space-x-4">
-                            <div class="flex-1">
-                                <textarea 
-                                    id="message-input" 
-                                    placeholder="Type your message... Use @agent to mention other agents"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    rows="2"
-                                    disabled
-                                ></textarea>
-                            </div>
-                            <button 
-                                id="send-button" 
-                                class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                disabled
-                            >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                                </svg>
-                            </button>
+                    <div class="p-4">
+                        <div id="activityFeed" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div class="text-gray-500 text-sm">No recent activity</div>
                         </div>
-                        <div id="input-error" class="mt-2 text-sm text-error" style="display: none;"></div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Error Toast -->
-    <div id="error-toast" class="fixed top-4 right-4 bg-error text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
-        <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span id="error-message">An error occurred</span>
-        </div>
-    </div>
-
-    <!-- Success Toast -->
-    <div id="success-toast" class="fixed top-4 right-4 bg-success text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
-        <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span id="success-message">Success!</span>
-        </div>
-    </div>
-
+    <!-- WebSocket JavaScript -->
     <script>
-        // Application State
-        let currentAgent = null;
-        let conversationHistory = [];
-        let availableAgents = [];
-        let availableModels = [];
-        let isLoading = false;
-
-        // Conversation Persistence Functions
-        function saveConversation(agentId, history) {
-            try {
-                const key = `swarm_conversation_${agentId}`;
-                localStorage.setItem(key, JSON.stringify({
-                    history: history,
-                    timestamp: Date.now(),
-                    agentId: agentId
-                }));
-                console.log(`Saved conversation for ${agentId}:`, history.length, 'messages');
-            } catch (error) {
-                console.warn('Failed to save conversation:', error);
-            }
-        }
-
-        function loadConversation(agentId) {
-            try {
-                const key = `swarm_conversation_${agentId}`;
-                const saved = localStorage.getItem(key);
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    console.log(`Loaded conversation for ${agentId}:`, data.history.length, 'messages');
-                    return data.history || [];
-                }
-            } catch (error) {
-                console.warn('Failed to load conversation:', error);
-            }
-            return [];
-        }
-
-        function clearConversation(agentId) {
-            try {
-                const key = `swarm_conversation_${agentId}`;
-                localStorage.removeItem(key);
-                console.log(`Cleared conversation for ${agentId}`);
-            } catch (error) {
-                console.warn('Failed to clear conversation:', error);
-            }
-        }
-
-        function restoreConversationUI(history) {
-            clearMessages();
-            history.forEach(msg => {
-                if (msg.role === 'user') {
-                    addMessage(msg.content, true);
-                } else if (msg.role === 'assistant') {
-                    addMessage(msg.content, false, currentAgent?.name);
-                }
-            });
-            
-            if (history.length > 0) {
-                showSuccess(`Restored ${history.length} messages`);
-            }
-        }
-
-        // @Mention Collaboration Functions
-        function parseMessage(message) {
-            // Parse @mentions in the message
-            const mentionRegex = /@(\w+)/g;
-            const mentions = [];
-            let match;
-            
-            while ((match = mentionRegex.exec(message)) !== null) {
-                const mentionedAgent = match[1].toLowerCase();
-                // Check if mentioned agent exists
-                const agent = availableAgents.find(a => 
-                    a.agent_id.toLowerCase() === mentionedAgent || 
-                    a.name.toLowerCase().includes(mentionedAgent)
-                );
-                if (agent && !mentions.includes(agent.agent_id)) {
-                    mentions.push(agent.agent_id);
-                }
+        class SwarmWebSocketClient {
+            constructor() {
+                this.socket = null;
+                this.connected = false;
+                this.currentAgent = null;
+                this.currentRoom = null;
+                this.agents = {};
+                this.messageCount = 0;
+                
+                this.init();
             }
             
-            return {
-                text: message,
-                mentions: mentions,
-                hasMentions: mentions.length > 0
-            };
-        }
-
-        function highlightMentions(message) {
-            // Highlight @mentions in the message
-            return message.replace(/@(\w+)/g, '<span class="bg-blue-100 text-blue-800 px-1 rounded">@$1</span>');
-        }
-
-        async function sendCollaborativeMessage(message, mentions, selectedModel) {
-            try {
-                const response = await fetch(`${API_BASE}/agents/collaborate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        mentioned_agents: mentions,
-                        conversation_history: conversationHistory,
-                        model: selectedModel
-                    })
+            init() {
+                this.updateConnectionStatus('connecting');
+                
+                // Initialize Socket.IO connection
+                this.socket = io('/swarm', {
+                    auth: {
+                        user_id: 'user_' + Math.random().toString(36).substr(2, 9)
+                    }
                 });
-
-                const data = await response.json();
                 
-                if (!data.success) {
-                    throw new Error(data.error?.message || 'Failed to send collaborative message');
-                }
-                
-                return data.data;
-                
-            } catch (error) {
-                console.error('Error sending collaborative message:', error);
-                throw error;
+                this.setupEventListeners();
+                this.setupUIEventListeners();
             }
-        }
-
-        // Smart Agent Suggestions Functions
-        let suggestionTimeout = null;
-
-        async function getSuggestedAgents(taskDescription) {
-            try {
-                const response = await fetch(`${API_BASE}/agents/suggest`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        task_description: taskDescription
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error?.message || 'Failed to get suggestions');
-                }
-                
-                return data.data.suggested_agents || [];
-                
-            } catch (error) {
-                console.warn('Error getting agent suggestions:', error);
-                return [];
-            }
-        }
-
-        function displaySuggestions(suggestedAgents) {
-            if (!suggestedAgents || suggestedAgents.length === 0) {
-                hideSuggestions();
-                return;
-            }
-
-            // Filter out currently selected agent
-            const filteredSuggestions = suggestedAgents.filter(agent => 
-                !currentAgent || agent.agent_id !== currentAgent.agent_id
-            );
-
-            if (filteredSuggestions.length === 0) {
-                hideSuggestions();
-                return;
-            }
-
-            suggestionsList.innerHTML = '';
             
-            filteredSuggestions.slice(0, 3).forEach(agent => {
-                const suggestionButton = document.createElement('button');
-                suggestionButton.className = 'inline-flex items-center px-3 py-1 text-xs font-medium bg-white border border-blue-200 text-blue-800 rounded-full hover:bg-blue-100 transition-colors';
-                suggestionButton.innerHTML = `
-                    <span class="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center mr-2">
-                        ${agent.name.charAt(0)}
-                    </span>
-                    ${agent.name}
+            setupEventListeners() {
+                // Connection events
+                this.socket.on('connect', () => {
+                    console.log('Connected to WebSocket');
+                    this.connected = true;
+                    this.updateConnectionStatus('connected');
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('Disconnected from WebSocket');
+                    this.connected = false;
+                    this.updateConnectionStatus('disconnected');
+                });
+                
+                this.socket.on('connection_status', (data) => {
+                    console.log('Connection status:', data);
+                });
+                
+                // System state
+                this.socket.on('system_state', (data) => {
+                    console.log('System state:', data);
+                    this.updateSystemState(data);
+                });
+                
+                // Agent events
+                this.socket.on('agent_state_update', (data) => {
+                    console.log('Agent state update:', data);
+                    this.updateAgentState(data.agent_id, data.state);
+                });
+                
+                this.socket.on('agent_status_update', (data) => {
+                    console.log('Agent status update:', data);
+                    this.updateAgentStatus(data);
+                });
+                
+                this.socket.on('agent_message', (data) => {
+                    console.log('Agent message:', data);
+                    this.displayMessage(data);
+                });
+                
+                // Message events
+                this.socket.on('message_received', (data) => {
+                    console.log('Message received:', data);
+                    this.displayMessage(data);
+                });
+                
+                // Collaboration events
+                this.socket.on('collaboration_joined', (data) => {
+                    console.log('Collaboration joined:', data);
+                    this.currentRoom = data.room_id;
+                    this.updateCollaborations();
+                });
+                
+                this.socket.on('participant_joined', (data) => {
+                    console.log('Participant joined:', data);
+                    this.addActivity(`${data.user_id} joined collaboration`);
+                });
+                
+                this.socket.on('participant_left', (data) => {
+                    console.log('Participant left:', data);
+                    this.addActivity(`${data.user_id} left collaboration`);
+                });
+                
+                // Error handling
+                this.socket.on('error', (data) => {
+                    console.error('WebSocket error:', data);
+                    this.addActivity(`Error: ${data.message}`, 'error');
+                });
+            }
+            
+            setupUIEventListeners() {
+                // Send message
+                document.getElementById('sendBtn').addEventListener('click', () => {
+                    this.sendMessage();
+                });
+                
+                document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendMessage();
+                    }
+                });
+                
+                // Agent selection
+                document.getElementById('selectedAgent').addEventListener('change', (e) => {
+                    this.selectAgent(e.target.value);
+                });
+                
+                // Collaboration
+                document.getElementById('collaborateBtn').addEventListener('click', () => {
+                    this.startCollaboration();
+                });
+            }
+            
+            updateConnectionStatus(status) {
+                const indicator = document.getElementById('connectionIndicator');
+                const statusText = document.getElementById('connectionStatus');
+                
+                indicator.className = `connection-indicator ${status}`;
+                
+                switch(status) {
+                    case 'connected':
+                        statusText.textContent = 'Connected';
+                        break;
+                    case 'connecting':
+                        statusText.textContent = 'Connecting...';
+                        break;
+                    case 'disconnected':
+                        statusText.textContent = 'Disconnected';
+                        break;
+                }
+            }
+            
+            updateSystemState(data) {
+                // Update agents
+                this.agents = data.agents;
+                this.renderAgentGrid();
+                this.updateAgentSelect();
+                
+                // Update stats
+                document.getElementById('connectedClients').textContent = data.connected_clients;
+                document.getElementById('activeRooms').textContent = Object.keys(data.active_rooms).length;
+                
+                const workingAgents = Object.values(data.agents).filter(
+                    agent => agent.status === 'working' || agent.status === 'thinking'
+                ).length;
+                document.getElementById('workingAgents').textContent = workingAgents;
+            }
+            
+            renderAgentGrid() {
+                const grid = document.getElementById('agentGrid');
+                grid.innerHTML = '';
+                
+                Object.entries(this.agents).forEach(([agentId, agent]) => {
+                    const card = this.createAgentCard(agentId, agent);
+                    grid.appendChild(card);
+                });
+            }
+            
+            createAgentCard(agentId, agent) {
+                const card = document.createElement('div');
+                card.className = 'agent-card bg-white p-6 rounded-lg shadow cursor-pointer';
+                card.onclick = () => this.selectAgent(agentId);
+                
+                const statusClass = `status-${agent.status}`;
+                const progress = agent.progress * 100;
+                
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">${agent.agent_name}</h3>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">
+                            ${agent.status}
+                        </span>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-sm text-gray-600 mb-1">
+                            ${agent.current_task || 'No active task'}
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="progress-bar bg-blue-600 h-2 rounded-full" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-500">
+                        <span>${agent.connected_users.length} users</span>
+                        <span>Last: ${new Date(agent.last_activity).toLocaleTimeString()}</span>
+                    </div>
                 `;
                 
-                suggestionButton.addEventListener('click', () => {
-                    selectAgent(agent.agent_id);
-                    hideSuggestions();
+                return card;
+            }
+            
+            updateAgentSelect() {
+                const select = document.getElementById('selectedAgent');
+                const currentValue = select.value;
+                
+                select.innerHTML = '<option value="">Select an agent...</option>';
+                
+                Object.entries(this.agents).forEach(([agentId, agent]) => {
+                    const option = document.createElement('option');
+                    option.value = agentId;
+                    option.textContent = agent.agent_name;
+                    select.appendChild(option);
                 });
                 
-                suggestionsList.appendChild(suggestionButton);
-            });
+                if (currentValue && this.agents[currentValue]) {
+                    select.value = currentValue;
+                }
+            }
             
-            agentSuggestions.style.display = 'block';
-        }
-
-        function hideSuggestions() {
-            agentSuggestions.style.display = 'none';
-        }
-
-        function debounce(func, wait) {
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(suggestionTimeout);
-                    func(...args);
+            selectAgent(agentId) {
+                if (!agentId) {
+                    this.currentAgent = null;
+                    document.getElementById('chatMessages').innerHTML = 
+                        '<div class="text-center text-gray-500 py-8">Select an agent to start chatting</div>';
+                    return;
+                }
+                
+                this.currentAgent = agentId;
+                document.getElementById('selectedAgent').value = agentId;
+                
+                // Subscribe to agent updates
+                this.socket.emit('subscribe_agent', { agent_id: agentId });
+                
+                // Clear chat and show agent info
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = `
+                    <div class="text-center text-gray-500 py-4">
+                        Connected to ${this.agents[agentId].agent_name}
+                    </div>
+                `;
+                
+                this.addActivity(`Connected to ${this.agents[agentId].agent_name}`);
+            }
+            
+            sendMessage() {
+                const input = document.getElementById('messageInput');
+                const content = input.value.trim();
+                
+                if (!content || !this.currentAgent) return;
+                
+                const messageData = {
+                    content: content,
+                    recipient_id: this.currentAgent,
+                    metadata: {
+                        timestamp: new Date().toISOString()
+                    }
                 };
-                clearTimeout(suggestionTimeout);
-                suggestionTimeout = setTimeout(later, wait);
-            };
-        }
-
-        const debouncedGetSuggestions = debounce(async (message) => {
-            if (message.length > 10 && !currentAgent) {
-                const suggestions = await getSuggestedAgents(message);
-                displaySuggestions(suggestions);
-            } else if (currentAgent) {
-                hideSuggestions();
-            }
-        }, 800);
-
-        // DOM Elements
-        const agentsList = document.getElementById('agents-list');
-        const modelSelect = document.getElementById('model-select');
-        const messageInput = document.getElementById('message-input');
-        const sendButton = document.getElementById('send-button');
-        const messagesContainer = document.getElementById('messages-container');
-        const chatHeader = document.getElementById('chat-header');
-        const clearChatButton = document.getElementById('clear-chat');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const statusIndicator = document.getElementById('status-indicator');
-        const errorToast = document.getElementById('error-toast');
-        const successToast = document.getElementById('success-toast');
-        const inputError = document.getElementById('input-error');
-        const agentSuggestions = document.getElementById('agent-suggestions');
-        const suggestionsList = document.getElementById('suggestions-list');
-
-        // API Base URL
-        const API_BASE = '/api';
-
-        // Utility Functions
-        function showError(message) {
-            document.getElementById('error-message').textContent = message;
-            errorToast.classList.remove('translate-x-full');
-            setTimeout(() => {
-                errorToast.classList.add('translate-x-full');
-            }, 5000);
-        }
-
-        function showSuccess(message) {
-            document.getElementById('success-message').textContent = message;
-            successToast.classList.remove('translate-x-full');
-            setTimeout(() => {
-                successToast.classList.add('translate-x-full');
-            }, 3000);
-        }
-
-        function updateStatus(status, color = 'gray') {
-            const indicator = statusIndicator.querySelector('div');
-            const text = statusIndicator.querySelector('span');
-            
-            indicator.className = `w-3 h-3 bg-${color}-400 rounded-full`;
-            text.textContent = status;
-        }
-
-        // API Functions
-        async function fetchAgents() {
-            try {
-                updateStatus('Loading agents...', 'yellow');
-                const response = await fetch(`${API_BASE}/agents/`);
-                const data = await response.json();
                 
-                if (!data.success) {
-                    throw new Error(data.error?.message || 'Failed to fetch agents');
+                if (this.currentRoom) {
+                    messageData.room_id = this.currentRoom;
                 }
                 
-                availableAgents = data.data.agents;
-                renderAgents();
-                updateStatus('Connected', 'green');
+                this.socket.emit('send_message', messageData);
                 
-            } catch (error) {
-                console.error('Error fetching agents:', error);
-                showError('Failed to load agents: ' + error.message);
-                updateStatus('Connection failed', 'red');
-            }
-        }
-
-        async function fetchModels() {
-            try {
-                const response = await fetch(`${API_BASE}/agents/models`);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error?.message || 'Failed to fetch models');
-                }
-                
-                availableModels = data.data.models;
-                renderModels();
-                
-            } catch (error) {
-                console.error('Error fetching models:', error);
-                showError('Failed to load models: ' + error.message);
-                
-                // Fallback models
-                modelSelect.innerHTML = `
-                    <option value="openai/gpt-4o">GPT-4o</option>
-                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                `;
-            }
-        }
-
-        async function sendMessage(message, agentId, model) {
-            try {
-                isLoading = true;
-                updateSendButton();
-                
-                const response = await fetch(`${API_BASE}/agents/${agentId}/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        conversation_history: conversationHistory,
-                        model: model
-                    })
+                // Display user message immediately
+                this.displayMessage({
+                    message_id: 'temp_' + Date.now(),
+                    sender_type: 'user',
+                    content: content,
+                    timestamp: new Date().toISOString()
                 });
                 
-                const data = await response.json();
+                input.value = '';
+                this.messageCount++;
+                document.getElementById('totalMessages').textContent = this.messageCount;
+            }
+            
+            displayMessage(message) {
+                const chatMessages = document.getElementById('chatMessages');
                 
-                if (!data.success) {
-                    throw new Error(data.error?.message || 'Failed to send message');
+                // Remove placeholder if exists
+                if (chatMessages.children.length === 1 && 
+                    chatMessages.children[0].textContent.includes('Select an agent')) {
+                    chatMessages.innerHTML = '';
                 }
                 
-                return data.data;
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'flex';
                 
-            } catch (error) {
-                console.error('Error sending message:', error);
-                throw error;
-            } finally {
-                isLoading = false;
-                updateSendButton();
-            }
-        }
-
-        // Rendering Functions
-        function renderAgents() {
-            if (availableAgents.length === 0) {
-                agentsList.innerHTML = `
-                    <div class="text-center py-4 text-gray-500">
-                        No agents available
+                const messageClass = `message-${message.sender_type}`;
+                const time = new Date(message.timestamp).toLocaleTimeString();
+                
+                messageDiv.innerHTML = `
+                    <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${messageClass}">
+                        <div class="text-sm">${message.content}</div>
+                        <div class="text-xs opacity-75 mt-1">${time}</div>
                     </div>
                 `;
-                return;
-            }
-
-            agentsList.innerHTML = availableAgents.map(agent => `
-                <div class="agent-card p-4 border border-gray-200 rounded-lg cursor-pointer hover:border-primary transition-colors ${currentAgent?.agent_id === agent.agent_id ? 'border-primary bg-primary/5' : ''}" 
-                     onclick="selectAgent('${agent.agent_id}')">
-                    <div class="flex items-start space-x-3">
-                        <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span class="text-primary font-semibold">${agent.name.charAt(0)}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <h3 class="font-medium text-gray-900 truncate">${agent.name}</h3>
-                            <p class="text-sm text-gray-500 mt-1">${agent.description}</p>
-                            <div class="flex flex-wrap gap-1 mt-2">
-                                ${agent.capabilities.slice(0, 2).map(cap => `
-                                    <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">${cap.replace('_', ' ')}</span>
-                                `).join('')}
-                                ${agent.capabilities.length > 2 ? `<span class="text-xs text-gray-400">+${agent.capabilities.length - 2} more</span>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderModels() {
-            if (availableModels.length === 0) {
-                modelSelect.innerHTML = '<option value="">No models available</option>';
-                return;
-            }
-
-            modelSelect.innerHTML = availableModels.map(model => `
-                <option value="${model.id}">${model.name}</option>
-            `).join('');
-            
-            // Set default model if current agent has one
-            if (currentAgent && currentAgent.default_model) {
-                modelSelect.value = currentAgent.default_model;
-            }
-        }
-
-        function selectAgent(agentId) {
-            const agent = availableAgents.find(a => a.agent_id === agentId);
-            if (!agent) return;
-
-            currentAgent = agent;
-            
-            // Load conversation history from localStorage
-            conversationHistory = loadConversation(agentId);
-            
-            // Update UI
-            renderAgents(); // Re-render to show selection
-            updateChatHeader();
-            restoreConversationUI(conversationHistory);
-            enableInput();
-            
-            // Set preferred model
-            if (agent.default_model && modelSelect.querySelector(`option[value="${agent.default_model}"]`)) {
-                modelSelect.value = agent.default_model;
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
             
-            showSuccess(`Selected ${agent.name}`);
-        }
-
-        function updateChatHeader() {
-            if (!currentAgent) {
-                chatHeader.innerHTML = `
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Select an Agent</h3>
-                        <p class="text-sm text-gray-500">Choose an agent from the sidebar to start chatting</p>
-                    </div>
-                `;
-                clearChatButton.style.display = 'none';
-                return;
-            }
-
-            chatHeader.innerHTML = `
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span class="text-primary font-semibold">${currentAgent.name.charAt(0)}</span>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">${currentAgent.name}</h3>
-                        <p class="text-sm text-gray-500">${currentAgent.description}</p>
-                    </div>
-                </div>
-                <button id="clear-chat" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors" onclick="clearChat()">
-                    Clear Chat
-                </button>
-            `;
-        }
-
-        function enableInput() {
-            messageInput.disabled = false;
-            sendButton.disabled = false;
-            messageInput.placeholder = `Chat with ${currentAgent?.name || 'agent'}... Use @agent to mention other agents`;
-            welcomeMessage.style.display = 'none';
-        }
-
-        function disableInput() {
-            messageInput.disabled = true;
-            sendButton.disabled = true;
-            messageInput.placeholder = 'Select an agent to start chatting';
-        }
-
-        function updateSendButton() {
-            if (isLoading) {
-                sendButton.innerHTML = `
-                    <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                `;
-                sendButton.disabled = true;
-            } else {
-                sendButton.innerHTML = `
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                    </svg>
-                `;
-                sendButton.disabled = !currentAgent || messageInput.value.trim() === '';
-            }
-        }
-
-        function addMessage(content, isUser = false, agentName = null) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message-bubble flex ${isUser ? 'justify-end' : 'justify-start'}`;
-            
-            // Highlight @mentions in the content
-            const highlightedContent = isUser ? highlightMentions(content) : content;
-            
-            messageDiv.innerHTML = `
-                <div class="max-w-3xl ${isUser ? 'bg-primary text-white' : 'bg-gray-100 text-gray-900'} rounded-lg px-4 py-3">
-                    ${!isUser && agentName ? `<div class="text-xs font-medium mb-1 ${isUser ? 'text-blue-100' : 'text-gray-600'}">${agentName}</div>` : ''}
-                    <div class="whitespace-pre-wrap">${highlightedContent}</div>
-                </div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        function addCollaborativeResponse(responses) {
-            // Add a special collaborative response container
-            const collaborativeDiv = document.createElement('div');
-            collaborativeDiv.className = 'collaborative-response mb-4';
-            
-            let collaborativeHTML = `
-                <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
-                    <div class="text-sm font-medium text-blue-800 mb-3">
-                        🤝 Collaborative Response (${responses.length} agents)
-                    </div>
-                    <div class="space-y-3">
-            `;
-            
-            responses.forEach(response => {
-                const hasError = response.error;
-                collaborativeHTML += `
-                    <div class="bg-white rounded-md p-3 border ${hasError ? 'border-red-200' : 'border-gray-200'}">
-                        <div class="text-xs font-medium mb-1 ${hasError ? 'text-red-600' : 'text-gray-600'}">
-                            ${response.agent_name}
-                        </div>
-                        <div class="text-sm ${hasError ? 'text-red-700' : 'text-gray-900'}">${response.response}</div>
-                    </div>
-                `;
-            });
-            
-            collaborativeHTML += `
-                    </div>
-                </div>
-            `;
-            
-            collaborativeDiv.innerHTML = collaborativeHTML;
-            messagesContainer.appendChild(collaborativeDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        function clearMessages() {
-            messagesContainer.innerHTML = '';
-            welcomeMessage.style.display = currentAgent ? 'none' : 'block';
-            if (!currentAgent) {
-                messagesContainer.appendChild(welcomeMessage);
-            }
-        }
-
-        function clearChat() {
-            if (currentAgent) {
-                clearConversation(currentAgent.agent_id);
-            }
-            conversationHistory = [];
-            clearMessages();
-            showSuccess('Chat cleared');
-        }
-
-        function hideInputError() {
-            inputError.style.display = 'none';
-            messageInput.classList.remove('error-shake');
-        }
-
-        function showInputError(message) {
-            inputError.textContent = message;
-            inputError.style.display = 'block';
-            messageInput.classList.add('error-shake');
-            setTimeout(() => messageInput.classList.remove('error-shake'), 500);
-        }
-
-        // Event Handlers
-        async function handleSendMessage() {
-            const message = messageInput.value.trim();
-            if (!message || !currentAgent || isLoading) return;
-
-            const selectedModel = modelSelect.value;
-            if (!selectedModel) {
-                showInputError('Please select a model');
-                return;
-            }
-
-            hideInputError();
-
-            // Parse message for @mentions
-            const parsedMessage = parseMessage(message);
-            
-            // Add user message to UI
-            addMessage(message, true);
-            
-            // Add to conversation history
-            conversationHistory.push({ role: 'user', content: message });
-            
-            // Auto-save conversation
-            saveConversation(currentAgent.agent_id, conversationHistory);
-            
-            // Clear input
-            messageInput.value = '';
-            updateSendButton();
-
-            try {
-                if (parsedMessage.hasMentions) {
-                    // Collaborative message with multiple agents
-                    showSuccess(`Collaborating with ${parsedMessage.mentions.length} agents...`);
-                    
-                    const collaborativeResponse = await sendCollaborativeMessage(
-                        message, 
-                        parsedMessage.mentions, 
-                        selectedModel
-                    );
-                    
-                    // Add collaborative response to UI
-                    addCollaborativeResponse(collaborativeResponse.responses);
-                    
-                    // Add collaborative response to conversation history
-                    const collaborativeContent = collaborativeResponse.responses
-                        .map(r => `**${r.agent_name}**: ${r.response}`)
-                        .join('\n\n');
-                    
-                    conversationHistory.push({ 
-                        role: 'assistant', 
-                        content: collaborativeContent,
-                        type: 'collaborative',
-                        agents: parsedMessage.mentions
-                    });
-                    
-                } else {
-                    // Regular single-agent message
-                    const response = await sendMessage(message, currentAgent.agent_id, selectedModel);
-                    
-                    // Add agent response to UI
-                    addMessage(response.response, false, currentAgent.name);
-                    
-                    // Add to conversation history
-                    conversationHistory.push({ role: 'assistant', content: response.response });
+            startCollaboration() {
+                if (!this.currentAgent) {
+                    alert('Please select an agent first');
+                    return;
                 }
                 
-                // Auto-save conversation
-                saveConversation(currentAgent.agent_id, conversationHistory);
-                
-            } catch (error) {
-                showError('Failed to send message: ' + error.message);
-                
-                // Add error message to chat
-                addMessage('Sorry, I encountered an error processing your message. Please try again.', false, 'System');
+                this.socket.emit('join_collaboration', {
+                    room_id: null // Let server generate room ID
+                });
             }
-        }
-
-        // Event Listeners
-        sendButton.addEventListener('click', handleSendMessage);
-
-        messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-            }
-        });
-
-        messageInput.addEventListener('input', () => {
-            updateSendButton();
-            hideInputError();
             
-            // Trigger smart agent suggestions
-            const message = messageInput.value.trim();
-            debouncedGetSuggestions(message);
-        });
-
-        // Initialize Application
-        async function initializeApp() {
-            try {
-                await Promise.all([fetchAgents(), fetchModels()]);
-                disableInput(); // Start with input disabled until agent is selected
-            } catch (error) {
-                console.error('Failed to initialize app:', error);
-                showError('Failed to initialize application');
+            updateCollaborations() {
+                // This would be implemented to show active collaboration rooms
+                const list = document.getElementById('collaborationsList');
+                if (this.currentRoom) {
+                    list.innerHTML = `
+                        <div class="p-2 bg-green-50 rounded border">
+                            <div class="font-medium text-green-800">Room: ${this.currentRoom}</div>
+                            <div class="text-sm text-green-600">Active collaboration</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            addActivity(message, type = 'info') {
+                const feed = document.getElementById('activityFeed');
+                
+                // Remove placeholder if exists
+                if (feed.children.length === 1 && 
+                    feed.children[0].textContent.includes('No recent activity')) {
+                    feed.innerHTML = '';
+                }
+                
+                const activity = document.createElement('div');
+                activity.className = `text-sm p-2 rounded ${type === 'error' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`;
+                activity.innerHTML = `
+                    <div>${message}</div>
+                    <div class="text-xs opacity-75">${new Date().toLocaleTimeString()}</div>
+                `;
+                
+                feed.insertBefore(activity, feed.firstChild);
+                
+                // Keep only last 10 activities
+                while (feed.children.length > 10) {
+                    feed.removeChild(feed.lastChild);
+                }
+            }
+            
+            updateAgentState(agentId, state) {
+                this.agents[agentId] = state;
+                this.renderAgentGrid();
+            }
+            
+            updateAgentStatus(data) {
+                if (this.agents[data.agent_id]) {
+                    this.agents[data.agent_id].status = data.status;
+                    this.agents[data.agent_id].current_task = data.current_task;
+                    this.agents[data.agent_id].progress = data.progress;
+                    this.agents[data.agent_id].last_activity = data.timestamp;
+                    
+                    this.renderAgentGrid();
+                    
+                    this.addActivity(`${data.agent_id} is now ${data.status}${data.current_task ? ': ' + data.current_task : ''}`);
+                }
             }
         }
-
-        // Start the application
-        initializeApp();
+        
+        // Initialize WebSocket client when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.swarmClient = new SwarmWebSocketClient();
+        });
     </script>
 </body>
 </html>

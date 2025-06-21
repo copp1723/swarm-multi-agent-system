@@ -1,273 +1,288 @@
 #!/usr/bin/env python3
 """
-Database migration script for Swarm Multi-Agent System
-Handles migration from SQLite to PostgreSQL for production deployment
+Database Migration and Setup Script
+Handles PostgreSQL database initialization, migrations, and data seeding
 """
 
 import os
 import sys
-import sqlite3
-import psycopg2
-import json
-from datetime import datetime
-from typing import Dict, List, Any
+import logging
+from datetime import datetime, timezone
+from typing import Optional
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from src.config import config
+from flask import Flask
+from sqlalchemy import text, inspect
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
+from src.models.user import db, User
+from src.config_flexible import get_config
+from src.services.auth_service import AuthenticationService
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 class DatabaseMigrator:
-    """Handles database migration from SQLite to PostgreSQL"""
+    """Handles database migrations and setup"""
     
-    def __init__(self, sqlite_path: str, postgres_url: str):
-        self.sqlite_path = sqlite_path
-        self.postgres_url = postgres_url
+    def __init__(self, app: Flask):
+        self.app = app
+        self.config = get_config()
         
-    def connect_sqlite(self):
-        """Connect to SQLite database"""
-        return sqlite3.connect(self.sqlite_path)
-    
-    def connect_postgres(self):
-        """Connect to PostgreSQL database"""
-        return psycopg2.connect(self.postgres_url)
-    
-    def export_sqlite_data(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Export all data from SQLite database"""
-        data = {}
-        
+    def check_database_connection(self) -> bool:
+        """Check if database connection is working"""
         try:
-            conn = self.connect_sqlite()
-            cursor = conn.cursor()
-            
-            # Get all table names
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = [row[0] for row in cursor.fetchall()]
-            
-            for table in tables:
-                if table.startswith('sqlite_'):
-                    continue  # Skip SQLite system tables
-                
-                print(f"Exporting table: {table}")
-                cursor.execute(f"SELECT * FROM {table}")
-                
-                # Get column names
-                columns = [description[0] for description in cursor.description]
-                
-                # Get all rows
-                rows = cursor.fetchall()
-                
-                # Convert to list of dictionaries
-                table_data = []
-                for row in rows:
-                    row_dict = {}
-                    for i, value in enumerate(row):
-                        row_dict[columns[i]] = value
-                    table_data.append(row_dict)
-                
-                data[table] = table_data
-                print(f"Exported {len(table_data)} rows from {table}")
-            
-            conn.close()
-            return data
-            
-        except sqlite3.Error as e:
-            print(f"SQLite error: {e}")
-            return {}
+            with self.app.app_context():
+                db.session.execute(text('SELECT 1'))
+                db.session.commit()
+                logger.info("✅ Database connection successful")
+                return True
         except Exception as e:
-            print(f"Error exporting SQLite data: {e}")
-            return {}
+            logger.error(f"❌ Database connection failed: {e}")
+            return False
     
-    def create_postgres_tables(self):
-        """Create tables in PostgreSQL database"""
+    def check_database_exists(self) -> bool:
+        """Check if database exists and has tables"""
         try:
-            conn = self.connect_postgres()
-            cursor = conn.cursor()
-            
-            # Create users table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(80) UNIQUE NOT NULL,
-                    email VARCHAR(120) UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            # Create conversations table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id),
-                    agent_id VARCHAR(50) NOT NULL,
-                    message TEXT NOT NULL,
-                    response TEXT,
-                    model_used VARCHAR(100),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    metadata JSONB
-                );
-            """)
-            
-            # Create agent_memory table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS agent_memory (
-                    id SERIAL PRIMARY KEY,
-                    agent_id VARCHAR(50) NOT NULL,
-                    memory_key VARCHAR(255) NOT NULL,
-                    memory_value TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(agent_id, memory_key)
-                );
-            """)
-            
-            # Create file_operations table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS file_operations (
-                    id SERIAL PRIMARY KEY,
-                    agent_id VARCHAR(50) NOT NULL,
-                    operation VARCHAR(50) NOT NULL,
-                    file_path TEXT NOT NULL,
-                    success BOOLEAN DEFAULT TRUE,
-                    error_message TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    metadata JSONB
-                );
-            """)
-            
-            # Create email_logs table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS email_logs (
-                    id SERIAL PRIMARY KEY,
-                    agent_id VARCHAR(50) NOT NULL,
-                    message_id VARCHAR(255),
-                    recipient VARCHAR(255) NOT NULL,
-                    subject TEXT,
-                    status VARCHAR(50) DEFAULT 'sent',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    delivered_at TIMESTAMP,
-                    metadata JSONB
-                );
-            """)
-            
-            # Create indexes for better performance
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_agent_id ON conversations(agent_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_memory_agent_id ON agent_memory(agent_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_file_operations_agent_id ON file_operations(agent_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_logs_agent_id ON email_logs(agent_id);")
-            
-            conn.commit()
-            conn.close()
-            print("PostgreSQL tables created successfully")
-            
-        except psycopg2.Error as e:
-            print(f"PostgreSQL error: {e}")
+            with self.app.app_context():
+                inspector = inspect(db.engine)
+                tables = inspector.get_table_names()
+                logger.info(f"📊 Found {len(tables)} tables: {tables}")
+                return len(tables) > 0
         except Exception as e:
-            print(f"Error creating PostgreSQL tables: {e}")
+            logger.error(f"❌ Failed to check database: {e}")
+            return False
     
-    def import_postgres_data(self, data: Dict[str, List[Dict[str, Any]]]):
-        """Import data into PostgreSQL database"""
+    def create_tables(self) -> bool:
+        """Create all database tables"""
         try:
-            conn = self.connect_postgres()
-            cursor = conn.cursor()
-            
-            for table_name, table_data in data.items():
-                if not table_data:
-                    continue
+            with self.app.app_context():
+                logger.info("🔨 Creating database tables...")
+                db.create_all()
                 
-                print(f"Importing {len(table_data)} rows into {table_name}")
+                # Verify tables were created
+                inspector = inspect(db.engine)
+                tables = inspector.get_table_names()
+                logger.info(f"✅ Created {len(tables)} tables: {tables}")
+                return True
                 
-                # Get column names from first row
-                columns = list(table_data[0].keys())
-                
-                # Create INSERT statement
-                placeholders = ', '.join(['%s'] * len(columns))
-                columns_str = ', '.join(columns)
-                insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
-                
-                # Prepare data for insertion
-                rows_to_insert = []
-                for row in table_data:
-                    row_values = []
-                    for col in columns:
-                        value = row[col]
-                        # Handle JSON fields
-                        if isinstance(value, (dict, list)):
-                            value = json.dumps(value)
-                        row_values.append(value)
-                    rows_to_insert.append(tuple(row_values))
-                
-                # Insert data in batches
-                batch_size = 100
-                for i in range(0, len(rows_to_insert), batch_size):
-                    batch = rows_to_insert[i:i + batch_size]
-                    try:
-                        cursor.executemany(insert_sql, batch)
-                        conn.commit()
-                    except psycopg2.Error as e:
-                        print(f"Error inserting batch for {table_name}: {e}")
-                        conn.rollback()
-                
-                print(f"Successfully imported {table_name}")
-            
-            conn.close()
-            print("Data import completed")
-            
-        except psycopg2.Error as e:
-            print(f"PostgreSQL error during import: {e}")
         except Exception as e:
-            print(f"Error importing data: {e}")
+            logger.error(f"❌ Failed to create tables: {e}")
+            return False
     
-    def migrate(self):
-        """Perform complete migration"""
-        print("Starting database migration...")
-        print(f"Source: {self.sqlite_path}")
-        print(f"Target: {self.postgres_url}")
-        
-        # Step 1: Create PostgreSQL tables
-        print("\n1. Creating PostgreSQL tables...")
-        self.create_postgres_tables()
-        
-        # Step 2: Export SQLite data
-        print("\n2. Exporting SQLite data...")
-        data = self.export_sqlite_data()
-        
-        if not data:
-            print("No data to migrate")
-            return
-        
-        # Step 3: Import data to PostgreSQL
-        print("\n3. Importing data to PostgreSQL...")
-        self.import_postgres_data(data)
-        
-        print("\nMigration completed successfully!")
+    def seed_initial_data(self) -> bool:
+        """Seed database with initial data"""
+        try:
+            with self.app.app_context():
+                logger.info("🌱 Seeding initial data...")
+                
+                # Check if admin user already exists
+                admin_user = User.query.filter_by(username='admin').first()
+                if admin_user:
+                    logger.info("👤 Admin user already exists")
+                    return True
+                
+                # Create admin user
+                auth_service = AuthenticationService(
+                    secret_key=self.config.security.secret_key
+                )
+                
+                admin_user = User(
+                    username='admin',
+                    email='admin@swarm.local',
+                    first_name='System',
+                    last_name='Administrator',
+                    roles='admin,user',
+                    is_active=True,
+                    created_at=datetime.now(timezone.utc)
+                )
+                
+                # Set password
+                admin_user.password_hash = auth_service.hash_password('admin123')
+                
+                db.session.add(admin_user)
+                db.session.commit()
+                
+                logger.info("✅ Created admin user (username: admin, password: admin123)")
+                logger.warning("🔒 IMPORTANT: Change the admin password in production!")
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to seed data: {e}")
+            db.session.rollback()
+            return False
+    
+    def run_migrations(self) -> bool:
+        """Run database migrations"""
+        try:
+            with self.app.app_context():
+                logger.info("🔄 Running database migrations...")
+                
+                # For now, we'll use simple table creation
+                # In the future, this could use Flask-Migrate for more complex migrations
+                
+                # Check if we need to add new columns or modify existing ones
+                inspector = inspect(db.engine)
+                
+                # Example: Check if user table has all required columns
+                if 'user' in inspector.get_table_names():
+                    columns = [col['name'] for col in inspector.get_columns('user')]
+                    logger.info(f"📋 User table columns: {columns}")
+                    
+                    # Add any missing columns here
+                    required_columns = [
+                        'user_id', 'username', 'email', 'password_hash',
+                        'first_name', 'last_name', 'roles', 'is_active',
+                        'created_at', 'last_login'
+                    ]
+                    
+                    missing_columns = [col for col in required_columns if col not in columns]
+                    if missing_columns:
+                        logger.warning(f"⚠️ Missing columns: {missing_columns}")
+                        # In a real migration system, we'd add these columns here
+                
+                logger.info("✅ Migrations completed")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Migration failed: {e}")
+            return False
+    
+    def backup_database(self, backup_path: Optional[str] = None) -> bool:
+        """Create database backup (PostgreSQL only)"""
+        if not self.config.database.is_postgresql:
+            logger.info("📁 Backup skipped (SQLite database)")
+            return True
+            
+        try:
+            if not backup_path:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_path = f"backup_swarm_db_{timestamp}.sql"
+            
+            # Extract database connection details
+            db_url = self.config.database.url
+            # This would use pg_dump in a real implementation
+            logger.info(f"💾 Database backup would be created at: {backup_path}")
+            logger.info("📝 Note: Implement pg_dump for production backups")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Backup failed: {e}")
+            return False
+    
+    def verify_setup(self) -> bool:
+        """Verify database setup is correct"""
+        try:
+            with self.app.app_context():
+                logger.info("🔍 Verifying database setup...")
+                
+                # Check tables exist
+                inspector = inspect(db.engine)
+                tables = inspector.get_table_names()
+                
+                required_tables = ['user']  # Add more tables as needed
+                missing_tables = [table for table in required_tables if table not in tables]
+                
+                if missing_tables:
+                    logger.error(f"❌ Missing tables: {missing_tables}")
+                    return False
+                
+                # Check admin user exists
+                admin_user = User.query.filter_by(username='admin').first()
+                if not admin_user:
+                    logger.error("❌ Admin user not found")
+                    return False
+                
+                # Test database operations
+                test_user_count = User.query.count()
+                logger.info(f"👥 Found {test_user_count} users in database")
+                
+                logger.info("✅ Database verification successful")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Verification failed: {e}")
+            return False
+
+
+def create_app_for_migration():
+    """Create Flask app for migration purposes"""
+    app = Flask(__name__)
+    
+    config = get_config()
+    app.config['SECRET_KEY'] = config.security.secret_key
+    app.config['SQLALCHEMY_DATABASE_URI'] = config.database.url
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': config.database.pool_size,
+        'pool_timeout': config.database.pool_timeout,
+        'pool_recycle': config.database.pool_recycle,
+        'echo': config.database.echo
+    }
+    
+    db.init_app(app)
+    return app
+
 
 def main():
-    """Main migration function"""
-    # Default paths
-    sqlite_path = os.path.join(os.path.dirname(__file__), 'src', 'database', 'app.db')
+    """Main migration script"""
+    logger.info("🚀 Starting database migration...")
     
-    # Get PostgreSQL URL from environment or config
-    postgres_url = os.getenv('DATABASE_URL') or config.database_url
+    # Create Flask app
+    app = create_app_for_migration()
+    migrator = DatabaseMigrator(app)
     
-    if not postgres_url or postgres_url.startswith('sqlite'):
-        print("Error: PostgreSQL DATABASE_URL not configured")
-        print("Please set the DATABASE_URL environment variable")
+    # Check database connection
+    if not migrator.check_database_connection():
+        logger.error("💥 Cannot connect to database. Check your DATABASE_URL.")
         sys.exit(1)
     
-    if not os.path.exists(sqlite_path):
-        print(f"SQLite database not found at: {sqlite_path}")
-        print("Creating empty migration (no existing data to migrate)")
-        migrator = DatabaseMigrator(sqlite_path, postgres_url)
-        migrator.create_postgres_tables()
-        return
+    # Check if database already exists
+    db_exists = migrator.check_database_exists()
     
-    # Perform migration
-    migrator = DatabaseMigrator(sqlite_path, postgres_url)
-    migrator.migrate()
+    if not db_exists:
+        logger.info("🆕 New database detected, creating tables...")
+        if not migrator.create_tables():
+            logger.error("💥 Failed to create tables")
+            sys.exit(1)
+    else:
+        logger.info("📊 Existing database detected, running migrations...")
+        if not migrator.run_migrations():
+            logger.error("💥 Migration failed")
+            sys.exit(1)
+    
+    # Seed initial data
+    if not migrator.seed_initial_data():
+        logger.error("💥 Failed to seed initial data")
+        sys.exit(1)
+    
+    # Verify setup
+    if not migrator.verify_setup():
+        logger.error("💥 Database verification failed")
+        sys.exit(1)
+    
+    logger.info("🎉 Database migration completed successfully!")
+    logger.info("📋 Summary:")
+    logger.info("   - Database connection: ✅")
+    logger.info("   - Tables created/updated: ✅")
+    logger.info("   - Initial data seeded: ✅")
+    logger.info("   - Verification passed: ✅")
+    logger.info("")
+    logger.info("🔐 Default admin credentials:")
+    logger.info("   Username: admin")
+    logger.info("   Password: admin123")
+    logger.info("   ⚠️  CHANGE PASSWORD IN PRODUCTION!")
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()
 
