@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Multi-Agent System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1E40AF',
+                        accent: '#F59E0B',
+                        success: '#10B981',
+                        error: '#EF4444',
+                        warning: '#F59E0B'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .message-bubble {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loading-dots {
+            animation: pulse 1.5s infinite;
+        }
+        .error-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-gray-900">Swarm Agents</h1>
+                        <p class="text-sm text-gray-500">Multi-Agent Collaboration System</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="status-indicator" class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
+                        <span class="text-sm text-gray-500">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Sidebar - Agent Selection -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Available Agents</h2>
+                    
+                    <!-- Agent List -->
+                    <div id="agents-list" class="space-y-3">
+                        <div class="text-center py-8">
+                            <div class="loading-dots text-gray-400">Loading agents...</div>
+                        </div>
+                    </div>
+
+                    <!-- Model Selection -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <label for="model-select" class="block text-sm font-medium text-gray-700 mb-2">
+                            AI Model
+                        </label>
+                        <select id="model-select" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex flex-col">
+                    <!-- Chat Header -->
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                        <div id="chat-header" class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Select an Agent</h3>
+                                <p class="text-sm text-gray-500">Choose an agent from the sidebar to start chatting</p>
+                            </div>
+                            <button id="clear-chat" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors" style="display: none;">
+                                Clear Chat
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-4">
+                        <div id="welcome-message" class="text-center py-12">
+                            <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.959 8.959 0 01-4.906-1.681L3 21l2.681-5.094A8.959 8.959 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Welcome to Swarm Agents</h3>
+                            <p class="text-gray-600 max-w-md mx-auto">Select an agent from the sidebar to start a conversation. Each agent has specialized capabilities to help you with different tasks.</p>
+                        </div>
+                    </div>
+
+                    <!-- Agent Suggestions -->
+                    <div id="agent-suggestions" class="px-6 py-2 border-t border-gray-200 bg-blue-50" style="display: none;">
+                        <div class="text-xs font-medium text-blue-800 mb-2">💡 Suggested Agents</div>
+                        <div id="suggestions-list" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                        <div class="flex space-x-4">
+                            <div class="flex-1">
+                                <textarea 
+                                    id="message-input" 
+                                    placeholder="Type your message... Use @agent to mention other agents"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    rows="2"
+                                    disabled
+                                ></textarea>
+                            </div>
+                            <button 
+                                id="send-button" 
+                                class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                disabled
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="input-error" class="mt-2 text-sm text-error" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="fixed top-4 right-4 bg-error text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span id="error-message">An error occurred</span>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="success-toast" class="fixed top-4 right-4 bg-success text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span id="success-message">Success!</span>
+        </div>
+    </div>
+
+    <script>
+        // Application State
+        let currentAgent = null;
+        let conversationHistory = [];
+        let availableAgents = [];
+        let availableModels = [];
+        let isLoading = false;
+
+        // Conversation Persistence Functions
+        function saveConversation(agentId, history) {
+            try {
+                const key = `swarm_conversation_${agentId}`;
+                localStorage.setItem(key, JSON.stringify({
+                    history: history,
+                    timestamp: Date.now(),
+                    agentId: agentId
+                }));
+                console.log(`Saved conversation for ${agentId}:`, history.length, 'messages');
+            } catch (error) {
+                console.warn('Failed to save conversation:', error);
+            }
+        }
+
+        function loadConversation(agentId) {
+            try {
+                const key = `swarm_conversation_${agentId}`;
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    console.log(`Loaded conversation for ${agentId}:`, data.history.length, 'messages');
+                    return data.history || [];
+                }
+            } catch (error) {
+                console.warn('Failed to load conversation:', error);
+            }
+            return [];
+        }
+
+        function clearConversation(agentId) {
+            try {
+                const key = `swarm_conversation_${agentId}`;
+                localStorage.removeItem(key);
+                console.log(`Cleared conversation for ${agentId}`);
+            } catch (error) {
+                console.warn('Failed to clear conversation:', error);
+            }
+        }
+
+        function restoreConversationUI(history) {
+            clearMessages();
+            history.forEach(msg => {
+                if (msg.role === 'user') {
+                    addMessage(msg.content, true);
+                } else if (msg.role === 'assistant') {
+                    addMessage(msg.content, false, currentAgent?.name);
+                }
+            });
+            
+            if (history.length > 0) {
+                showSuccess(`Restored ${history.length} messages`);
+            }
+        }
+
+        // @Mention Collaboration Functions
+        function parseMessage(message) {
+            // Parse @mentions in the message
+            const mentionRegex = /@(\w+)/g;
+            const mentions = [];
+            let match;
+            
+            while ((match = mentionRegex.exec(message)) !== null) {
+                const mentionedAgent = match[1].toLowerCase();
+                // Check if mentioned agent exists
+                const agent = availableAgents.find(a => 
+                    a.agent_id.toLowerCase() === mentionedAgent || 
+                    a.name.toLowerCase().includes(mentionedAgent)
+                );
+                if (agent && !mentions.includes(agent.agent_id)) {
+                    mentions.push(agent.agent_id);
+                }
+            }
+            
+            return {
+                text: message,
+                mentions: mentions,
+                hasMentions: mentions.length > 0
+            };
+        }
+
+        function highlightMentions(message) {
+            // Highlight @mentions in the message
+            return message.replace(/@(\w+)/g, '<span class="bg-blue-100 text-blue-800 px-1 rounded">@$1</span>');
+        }
+
+        async function sendCollaborativeMessage(message, mentions, selectedModel) {
+            try {
+                const response = await fetch(`${API_BASE}/agents/collaborate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        mentioned_agents: mentions,
+                        conversation_history: conversationHistory,
+                        model: selectedModel
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to send collaborative message');
+                }
+                
+                return data.data;
+                
+            } catch (error) {
+                console.error('Error sending collaborative message:', error);
+                throw error;
+            }
+        }
+
+        // Smart Agent Suggestions Functions
+        let suggestionTimeout = null;
+
+        async function getSuggestedAgents(taskDescription) {
+            try {
+                const response = await fetch(`${API_BASE}/agents/suggest`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        task_description: taskDescription
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to get suggestions');
+                }
+                
+                return data.data.suggested_agents || [];
+                
+            } catch (error) {
+                console.warn('Error getting agent suggestions:', error);
+                return [];
+            }
+        }
+
+        function displaySuggestions(suggestedAgents) {
+            if (!suggestedAgents || suggestedAgents.length === 0) {
+                hideSuggestions();
+                return;
+            }
+
+            // Filter out currently selected agent
+            const filteredSuggestions = suggestedAgents.filter(agent => 
+                !currentAgent || agent.agent_id !== currentAgent.agent_id
+            );
+
+            if (filteredSuggestions.length === 0) {
+                hideSuggestions();
+                return;
+            }
+
+            suggestionsList.innerHTML = '';
+            
+            filteredSuggestions.slice(0, 3).forEach(agent => {
+                const suggestionButton = document.createElement('button');
+                suggestionButton.className = 'inline-flex items-center px-3 py-1 text-xs font-medium bg-white border border-blue-200 text-blue-800 rounded-full hover:bg-blue-100 transition-colors';
+                suggestionButton.innerHTML = `
+                    <span class="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                        ${agent.name.charAt(0)}
+                    </span>
+                    ${agent.name}
+                `;
+                
+                suggestionButton.addEventListener('click', () => {
+                    selectAgent(agent.agent_id);
+                    hideSuggestions();
+                });
+                
+                suggestionsList.appendChild(suggestionButton);
+            });
+            
+            agentSuggestions.style.display = 'block';
+        }
+
+        function hideSuggestions() {
+            agentSuggestions.style.display = 'none';
+        }
+
+        function debounce(func, wait) {
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(suggestionTimeout);
+                    func(...args);
+                };
+                clearTimeout(suggestionTimeout);
+                suggestionTimeout = setTimeout(later, wait);
+            };
+        }
+
+        const debouncedGetSuggestions = debounce(async (message) => {
+            if (message.length > 10 && !currentAgent) {
+                const suggestions = await getSuggestedAgents(message);
+                displaySuggestions(suggestions);
+            } else if (currentAgent) {
+                hideSuggestions();
+            }
+        }, 800);
+
+        // DOM Elements
+        const agentsList = document.getElementById('agents-list');
+        const modelSelect = document.getElementById('model-select');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const messagesContainer = document.getElementById('messages-container');
+        const chatHeader = document.getElementById('chat-header');
+        const clearChatButton = document.getElementById('clear-chat');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const statusIndicator = document.getElementById('status-indicator');
+        const errorToast = document.getElementById('error-toast');
+        const successToast = document.getElementById('success-toast');
+        const inputError = document.getElementById('input-error');
+        const agentSuggestions = document.getElementById('agent-suggestions');
+        const suggestionsList = document.getElementById('suggestions-list');
+
+        // API Base URL
+        const API_BASE = '/api';
+
+        // Utility Functions
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            errorToast.classList.remove('translate-x-full');
+            setTimeout(() => {
+                errorToast.classList.add('translate-x-full');
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            document.getElementById('success-message').textContent = message;
+            successToast.classList.remove('translate-x-full');
+            setTimeout(() => {
+                successToast.classList.add('translate-x-full');
+            }, 3000);
+        }
+
+        function updateStatus(status, color = 'gray') {
+            const indicator = statusIndicator.querySelector('div');
+            const text = statusIndicator.querySelector('span');
+            
+            indicator.className = `w-3 h-3 bg-${color}-400 rounded-full`;
+            text.textContent = status;
+        }
+
+        // API Functions
+        async function fetchAgents() {
+            try {
+                updateStatus('Loading agents...', 'yellow');
+                const response = await fetch(`${API_BASE}/agents/`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to fetch agents');
+                }
+                
+                availableAgents = data.data.agents;
+                renderAgents();
+                updateStatus('Connected', 'green');
+                
+            } catch (error) {
+                console.error('Error fetching agents:', error);
+                showError('Failed to load agents: ' + error.message);
+                updateStatus('Connection failed', 'red');
+            }
+        }
+
+        async function fetchModels() {
+            try {
+                const response = await fetch(`${API_BASE}/agents/models`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to fetch models');
+                }
+                
+                availableModels = data.data.models;
+                renderModels();
+                
+            } catch (error) {
+                console.error('Error fetching models:', error);
+                showError('Failed to load models: ' + error.message);
+                
+                // Fallback models
+                modelSelect.innerHTML = `
+                    <option value="openai/gpt-4o">GPT-4o</option>
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                `;
+            }
+        }
+
+        async function sendMessage(message, agentId, model) {
+            try {
+                isLoading = true;
+                updateSendButton();
+                
+                const response = await fetch(`${API_BASE}/agents/${agentId}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory,
+                        model: model
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to send message');
+                }
+                
+                return data.data;
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                throw error;
+            } finally {
+                isLoading = false;
+                updateSendButton();
+            }
+        }
+
+        // Rendering Functions
+        function renderAgents() {
+            if (availableAgents.length === 0) {
+                agentsList.innerHTML = `
+                    <div class="text-center py-4 text-gray-500">
+                        No agents available
+                    </div>
+                `;
+                return;
+            }
+
+            agentsList.innerHTML = availableAgents.map(agent => `
+                <div class="agent-card p-4 border border-gray-200 rounded-lg cursor-pointer hover:border-primary transition-colors ${currentAgent?.agent_id === agent.agent_id ? 'border-primary bg-primary/5' : ''}" 
+                     onclick="selectAgent('${agent.agent_id}')">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-primary font-semibold">${agent.name.charAt(0)}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-medium text-gray-900 truncate">${agent.name}</h3>
+                            <p class="text-sm text-gray-500 mt-1">${agent.description}</p>
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                ${agent.capabilities.slice(0, 2).map(cap => `
+                                    <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">${cap.replace('_', ' ')}</span>
+                                `).join('')}
+                                ${agent.capabilities.length > 2 ? `<span class="text-xs text-gray-400">+${agent.capabilities.length - 2} more</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderModels() {
+            if (availableModels.length === 0) {
+                modelSelect.innerHTML = '<option value="">No models available</option>';
+                return;
+            }
+
+            modelSelect.innerHTML = availableModels.map(model => `
+                <option value="${model.id}">${model.name}</option>
+            `).join('');
+            
+            // Set default model if current agent has one
+            if (currentAgent && currentAgent.default_model) {
+                modelSelect.value = currentAgent.default_model;
+            }
+        }
+
+        function selectAgent(agentId) {
+            const agent = availableAgents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+
+            currentAgent = agent;
+            
+            // Load conversation history from localStorage
+            conversationHistory = loadConversation(agentId);
+            
+            // Update UI
+            renderAgents(); // Re-render to show selection
+            updateChatHeader();
+            restoreConversationUI(conversationHistory);
+            enableInput();
+            
+            // Set preferred model
+            if (agent.default_model && modelSelect.querySelector(`option[value="${agent.default_model}"]`)) {
+                modelSelect.value = agent.default_model;
+            }
+            
+            showSuccess(`Selected ${agent.name}`);
+        }
+
+        function updateChatHeader() {
+            if (!currentAgent) {
+                chatHeader.innerHTML = `
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Select an Agent</h3>
+                        <p class="text-sm text-gray-500">Choose an agent from the sidebar to start chatting</p>
+                    </div>
+                `;
+                clearChatButton.style.display = 'none';
+                return;
+            }
+
+            chatHeader.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span class="text-primary font-semibold">${currentAgent.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">${currentAgent.name}</h3>
+                        <p class="text-sm text-gray-500">${currentAgent.description}</p>
+                    </div>
+                </div>
+                <button id="clear-chat" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors" onclick="clearChat()">
+                    Clear Chat
+                </button>
+            `;
+        }
+
+        function enableInput() {
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.placeholder = `Chat with ${currentAgent?.name || 'agent'}... Use @agent to mention other agents`;
+            welcomeMessage.style.display = 'none';
+        }
+
+        function disableInput() {
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            messageInput.placeholder = 'Select an agent to start chatting';
+        }
+
+        function updateSendButton() {
+            if (isLoading) {
+                sendButton.innerHTML = `
+                    <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                `;
+                sendButton.disabled = true;
+            } else {
+                sendButton.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                `;
+                sendButton.disabled = !currentAgent || messageInput.value.trim() === '';
+            }
+        }
+
+        function addMessage(content, isUser = false, agentName = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-bubble flex ${isUser ? 'justify-end' : 'justify-start'}`;
+            
+            // Highlight @mentions in the content
+            const highlightedContent = isUser ? highlightMentions(content) : content;
+            
+            messageDiv.innerHTML = `
+                <div class="max-w-3xl ${isUser ? 'bg-primary text-white' : 'bg-gray-100 text-gray-900'} rounded-lg px-4 py-3">
+                    ${!isUser && agentName ? `<div class="text-xs font-medium mb-1 ${isUser ? 'text-blue-100' : 'text-gray-600'}">${agentName}</div>` : ''}
+                    <div class="whitespace-pre-wrap">${highlightedContent}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addCollaborativeResponse(responses) {
+            // Add a special collaborative response container
+            const collaborativeDiv = document.createElement('div');
+            collaborativeDiv.className = 'collaborative-response mb-4';
+            
+            let collaborativeHTML = `
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+                    <div class="text-sm font-medium text-blue-800 mb-3">
+                        🤝 Collaborative Response (${responses.length} agents)
+                    </div>
+                    <div class="space-y-3">
+            `;
+            
+            responses.forEach(response => {
+                const hasError = response.error;
+                collaborativeHTML += `
+                    <div class="bg-white rounded-md p-3 border ${hasError ? 'border-red-200' : 'border-gray-200'}">
+                        <div class="text-xs font-medium mb-1 ${hasError ? 'text-red-600' : 'text-gray-600'}">
+                            ${response.agent_name}
+                        </div>
+                        <div class="text-sm ${hasError ? 'text-red-700' : 'text-gray-900'}">${response.response}</div>
+                    </div>
+                `;
+            });
+            
+            collaborativeHTML += `
+                    </div>
+                </div>
+            `;
+            
+            collaborativeDiv.innerHTML = collaborativeHTML;
+            messagesContainer.appendChild(collaborativeDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function clearMessages() {
+            messagesContainer.innerHTML = '';
+            welcomeMessage.style.display = currentAgent ? 'none' : 'block';
+            if (!currentAgent) {
+                messagesContainer.appendChild(welcomeMessage);
+            }
+        }
+
+        function clearChat() {
+            if (currentAgent) {
+                clearConversation(currentAgent.agent_id);
+            }
+            conversationHistory = [];
+            clearMessages();
+            showSuccess('Chat cleared');
+        }
+
+        function hideInputError() {
+            inputError.style.display = 'none';
+            messageInput.classList.remove('error-shake');
+        }
+
+        function showInputError(message) {
+            inputError.textContent = message;
+            inputError.style.display = 'block';
+            messageInput.classList.add('error-shake');
+            setTimeout(() => messageInput.classList.remove('error-shake'), 500);
+        }
+
+        // Event Handlers
+        async function handleSendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !currentAgent || isLoading) return;
+
+            const selectedModel = modelSelect.value;
+            if (!selectedModel) {
+                showInputError('Please select a model');
+                return;
+            }
+
+            hideInputError();
+
+            // Parse message for @mentions
+            const parsedMessage = parseMessage(message);
+            
+            // Add user message to UI
+            addMessage(message, true);
+            
+            // Add to conversation history
+            conversationHistory.push({ role: 'user', content: message });
+            
+            // Auto-save conversation
+            saveConversation(currentAgent.agent_id, conversationHistory);
+            
+            // Clear input
+            messageInput.value = '';
+            updateSendButton();
+
+            try {
+                if (parsedMessage.hasMentions) {
+                    // Collaborative message with multiple agents
+                    showSuccess(`Collaborating with ${parsedMessage.mentions.length} agents...`);
+                    
+                    const collaborativeResponse = await sendCollaborativeMessage(
+                        message, 
+                        parsedMessage.mentions, 
+                        selectedModel
+                    );
+                    
+                    // Add collaborative response to UI
+                    addCollaborativeResponse(collaborativeResponse.responses);
+                    
+                    // Add collaborative response to conversation history
+                    const collaborativeContent = collaborativeResponse.responses
+                        .map(r => `**${r.agent_name}**: ${r.response}`)
+                        .join('\n\n');
+                    
+                    conversationHistory.push({ 
+                        role: 'assistant', 
+                        content: collaborativeContent,
+                        type: 'collaborative',
+                        agents: parsedMessage.mentions
+                    });
+                    
+                } else {
+                    // Regular single-agent message
+                    const response = await sendMessage(message, currentAgent.agent_id, selectedModel);
+                    
+                    // Add agent response to UI
+                    addMessage(response.response, false, currentAgent.name);
+                    
+                    // Add to conversation history
+                    conversationHistory.push({ role: 'assistant', content: response.response });
+                }
+                
+                // Auto-save conversation
+                saveConversation(currentAgent.agent_id, conversationHistory);
+                
+            } catch (error) {
+                showError('Failed to send message: ' + error.message);
+                
+                // Add error message to chat
+                addMessage('Sorry, I encountered an error processing your message. Please try again.', false, 'System');
+            }
+        }
+
+        // Event Listeners
+        sendButton.addEventListener('click', handleSendMessage);
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            updateSendButton();
+            hideInputError();
+            
+            // Trigger smart agent suggestions
+            const message = messageInput.value.trim();
+            debouncedGetSuggestions(message);
+        });
+
+        // Initialize Application
+        async function initializeApp() {
+            try {
+                await Promise.all([fetchAgents(), fetchModels()]);
+                disableInput(); // Start with input disabled until agent is selected
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showError('Failed to initialize application');
+            }
+        }
+
+        // Start the application
+        initializeApp();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,85 @@
+# Render.com Deployment Configuration
+# This file defines the services and configuration for deploying the Swarm Multi-Agent System
+
+services:
+  # Main web application
+  - type: web
+    name: swarm-agents-web
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 src.main:app
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swarm-agents-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: swarm-agents-redis
+          property: connectionString
+
+  # PostgreSQL Database
+  - type: pserv
+    name: swarm-agents-db
+    env: postgresql
+    region: oregon
+    plan: starter
+    databaseName: swarm_agents
+    databaseUser: swarm_user
+
+  # Redis Cache
+  - type: redis
+    name: swarm-agents-redis
+    region: oregon
+    plan: starter
+
+# Environment Variables (to be set in Render dashboard)
+envVars:
+  # Application Configuration
+  SECRET_KEY: "your-production-secret-key-here"
+  DEBUG: "False"
+  HOST: "0.0.0.0"
+  PORT: "10000"
+  
+  # API Keys (set these in Render dashboard)
+  OPENROUTER_API_KEY: ""
+  SUPERMEMORY_API_KEY: ""
+  MAILGUN_API_KEY: ""
+  MAILGUN_DOMAIN: ""
+  MAILGUN_WEBHOOK_SIGNING_KEY: ""
+  
+  # Service Configuration
+  API_TIMEOUT: "30"
+  MAX_RETRIES: "3"
+  RATE_LIMIT_PER_MINUTE: "60"
+  MAX_CONVERSATION_CONTEXT: "20"
+
+# Build Configuration
+buildCommand: |
+  pip install --upgrade pip
+  pip install -r requirements.txt
+  python -c "from src.models.user import db; from src.main import app; app.app_context().push(); db.create_all()"
+
+# Health Check Configuration
+healthCheck:
+  path: /health
+  interval: 30
+  timeout: 10
+  retries: 3
+
+# Scaling Configuration
+scaling:
+  minInstances: 1
+  maxInstances: 3
+  targetCPU: 70
+  targetMemory: 80
+
