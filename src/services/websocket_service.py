@@ -184,9 +184,14 @@ class SwarmWebSocketNamespace(Namespace):
             
             # Send current agent state
             agent_state = self.agent_states[agent_id]
+            
+            # Convert AgentState to dict with proper serialization
+            state_dict = asdict(agent_state)
+            state_dict['status'] = agent_state.status.value  # Convert enum to string
+            
             emit('agent_state_update', {
                 'agent_id': agent_id,
-                'state': asdict(agent_state),
+                'state': state_dict,
                 'timestamp': datetime.now(timezone.utc).isoformat()
             })
             
