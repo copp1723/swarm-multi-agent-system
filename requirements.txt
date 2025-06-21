@@ -1,39 +1,45 @@
 # Production requirements for Swarm Multi-Agent System
-
-# Core Flask dependencies
-Flask==3.0.0
+# Core Flask and web framework
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
-Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.23
+Werkzeug==2.3.7
 
-# Production WSGI server
-gunicorn==21.2.0
+# Database
+SQLAlchemy==2.0.21
+psycopg2-binary==2.9.7
 
-# Database drivers
-psycopg2-binary==2.9.9  # PostgreSQL
-redis==5.0.1             # Redis cache
+# Authentication and security
+PyJWT==2.8.0
+bcrypt==4.0.1
+cryptography>=40.0.0,<42.0.0
 
-# HTTP client and API integrations
+# HTTP requests and API clients
 requests==2.31.0
-urllib3==2.1.0
+urllib3==2.0.4
+
+# Production server
+gunicorn==21.2.0
 
 # Environment and configuration
 python-dotenv==1.0.0
 
-# Data handling and validation
-dataclasses-json==0.6.3
-marshmallow==3.20.1
+# Logging and monitoring
+structlog==23.1.0
 
-# Security and authentication
-cryptography>=40.0.0,<42.0.0
-PyJWT==2.8.0
+# Testing dependencies (dev/test only)
+pytest==7.4.2
+pytest-cov==4.1.0
+pytest-flask==1.2.0
+pytest-mock==3.11.1
+coverage==7.3.2
 
-# Monitoring and logging
-structlog==23.2.0
+# Development tools
+black==23.7.0
+flake8==6.0.0
+isort==5.12.0
 
-# Date and time handling
-python-dateutil==2.8.2
-
-# Performance monitoring
-psutil==5.9.6
+# Optional: For advanced testing
+factory-boy==3.3.0
+faker==19.6.2
 
