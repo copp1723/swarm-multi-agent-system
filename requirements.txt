@@ -31,9 +31,6 @@ PyJWT==2.8.0
 # Monitoring and logging
 structlog==23.2.0
 
-# File handling and utilities
-pathlib2==2.3.7
-
 # Date and time handling
 python-dateutil==2.8.2
 
