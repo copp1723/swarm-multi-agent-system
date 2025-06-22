@@ -1,13 +1,14 @@
 """
-WebSocket Service for Real-Time Agent Coordination
-Handles real-time communication between agents and clients
+WebSocket Service for Real-Time Agent Coordination with Response Streaming
+Handles real-time communication between agents and clients including live response streaming
 """
 
 import json
 import logging
 import uuid
+import asyncio
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any, Callable, AsyncGenerator
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -28,6 +29,10 @@ class MessageType(Enum):
     SYSTEM_MESSAGE = "system_message"
     ERROR = "error"
     HEARTBEAT = "heartbeat"
+    STREAM_START = "stream_start"
+    STREAM_CHUNK = "stream_chunk"
+    STREAM_END = "stream_end"
+    STREAM_ERROR = "stream_error"
 
 
 class AgentStatus(Enum):
@@ -67,14 +72,16 @@ class AgentState:
 
 
 class SwarmWebSocketNamespace(Namespace):
-    """Custom namespace for Swarm Multi-Agent System"""
+    """Custom namespace for Swarm Multi-Agent System with streaming support"""
     
-    def __init__(self, namespace: str = '/swarm'):
+    def __init__(self, namespace: str = '/swarm', app: Flask = None):
         super().__init__(namespace)
+        self.app = app  # Store Flask app reference
         self.connected_clients: Dict[str, Dict[str, Any]] = {}
         self.agent_states: Dict[str, AgentState] = {}
         self.active_rooms: Dict[str, Dict[str, Any]] = {}
         self.message_handlers: Dict[MessageType, List[Callable]] = {}
+        self.streaming_sessions: Dict[str, Dict[str, Any]] = {}  # Track active streaming sessions
         
         # Initialize default agents
         self._initialize_agents()
@@ -140,6 +147,9 @@ class SwarmWebSocketNamespace(Namespace):
             if client_id in self.connected_clients:
                 client_info = self.connected_clients[client_id]
                 user_id = client_info['user_id']
+                
+                # Clean up any active streaming sessions
+                self._cleanup_streaming_sessions(client_id)
                 
                 # Leave all rooms
                 for room_id in client_info['rooms']:
@@ -227,6 +237,52 @@ class SwarmWebSocketNamespace(Namespace):
         except Exception as e:
             logger.error(f"❌ Unsubscribe error: {e}")
     
+    def on_send_message(self, data):
+        """Send a message to agents or collaboration room with optional streaming"""
+        try:
+            client_id = request.sid
+            
+            if client_id not in self.connected_clients:
+                emit('error', {'message': 'Client not found'})
+                return
+            
+            user_id = self.connected_clients[client_id]['user_id']
+            
+            # Create message
+            message = WebSocketMessage(
+                message_id=str(uuid.uuid4()),
+                message_type=MessageType.USER_MESSAGE,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                sender_id=user_id,
+                sender_type='user',
+                content=data.get('content', ''),
+                metadata=data.get('metadata', {}),
+                room_id=data.get('room_id'),
+                recipient_id=data.get('recipient_id')
+            )
+            
+            # Check if streaming is requested
+            stream_enabled = data.get('stream', False)
+            model = data.get('model', 'openai/gpt-4o')
+            
+            # Handle different message targets
+            if message.room_id:
+                # Send to collaboration room
+                self._send_to_room(message)
+            elif message.recipient_id:
+                # Send to specific agent with optional streaming
+                if stream_enabled:
+                    self._send_to_agent_with_streaming(message, model, client_id)
+                else:
+                    self._send_to_agent(message)
+            else:
+                # Broadcast to all subscribed agents
+                self._broadcast_to_agents(message)
+            
+        except Exception as e:
+            logger.error(f"❌ Send message error: {e}")
+            emit('error', {'message': 'Failed to send message', 'error': str(e)})
+    
     def on_join_collaboration(self, data):
         """Join a collaboration room"""
         try:
@@ -286,45 +342,6 @@ class SwarmWebSocketNamespace(Namespace):
         except Exception as e:
             logger.error(f"❌ Leave collaboration error: {e}")
     
-    def on_send_message(self, data):
-        """Send a message to agents or collaboration room"""
-        try:
-            client_id = request.sid
-            
-            if client_id not in self.connected_clients:
-                emit('error', {'message': 'Client not found'})
-                return
-            
-            user_id = self.connected_clients[client_id]['user_id']
-            
-            # Create message
-            message = WebSocketMessage(
-                message_id=str(uuid.uuid4()),
-                message_type=MessageType.USER_MESSAGE,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                sender_id=user_id,
-                sender_type='user',
-                content=data.get('content', ''),
-                metadata=data.get('metadata', {}),
-                room_id=data.get('room_id'),
-                recipient_id=data.get('recipient_id')
-            )
-            
-            # Handle different message targets
-            if message.room_id:
-                # Send to collaboration room
-                self._send_to_room(message)
-            elif message.recipient_id:
-                # Send to specific agent
-                self._send_to_agent(message)
-            else:
-                # Broadcast to all subscribed agents
-                self._broadcast_to_agents(message)
-            
-        except Exception as e:
-            logger.error(f"❌ Send message error: {e}")
-            emit('error', {'message': 'Failed to send message', 'error': str(e)})
-    
     def on_heartbeat(self, data):
         """Handle heartbeat from client"""
         emit('heartbeat_response', {
@@ -332,13 +349,246 @@ class SwarmWebSocketNamespace(Namespace):
             'status': 'alive'
         })
     
+    def _send_to_agent_with_streaming(self, message: WebSocketMessage, model: str, client_id: str):
+        """Send message to agent with streaming response"""
+        try:
+            agent_id = message.recipient_id
+            if agent_id not in self.agent_states:
+                emit('error', {'message': f'Agent {agent_id} not found'}, room=client_id)
+                return
+            
+            # Update agent status
+            self.update_agent_status(agent_id, AgentStatus.THINKING, "Processing user message")
+            
+            # Create streaming session
+            session_id = str(uuid.uuid4())
+            self.streaming_sessions[session_id] = {
+                'client_id': client_id,
+                'agent_id': agent_id,
+                'message_id': message.message_id,
+                'model': model,
+                'started_at': datetime.now(timezone.utc).isoformat(),
+                'active': True
+            }
+            
+            # Start streaming response
+            self._start_streaming_response(session_id, message, model)
+            
+        except Exception as e:
+            logger.error(f"❌ Send to agent with streaming error: {e}")
+            emit('error', {'message': 'Failed to start streaming response', 'error': str(e)}, room=client_id)
+    
+    def _start_streaming_response(self, session_id: str, message: WebSocketMessage, model: str):
+        """Start streaming response from agent"""
+        try:
+            session = self.streaming_sessions.get(session_id)
+            if not session or not session['active']:
+                return
+            
+            client_id = session['client_id']
+            agent_id = session['agent_id']
+            
+            # Emit stream start
+            emit('response_stream_start', {
+                'session_id': session_id,
+                'agent_id': agent_id,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }, room=client_id)
+            
+            # Import here to avoid circular imports
+            from ..services.openrouter_service import OpenRouterService
+            from flask import current_app
+            
+            # Get OpenRouter service instance
+            openrouter_service = OpenRouterService()
+            
+            # Create agent context based on agent type
+            agent_context = self._get_agent_context(agent_id)
+            
+            # Prepare messages for the model
+            messages = [
+                {"role": "system", "content": agent_context},
+                {"role": "user", "content": message.content}
+            ]
+            
+            # Start streaming in a separate thread with Flask app context
+            import threading
+            thread = threading.Thread(
+                target=self._stream_agent_response,
+                args=(session_id, messages, model, openrouter_service)
+            )
+            thread.daemon = True
+            thread.start()
+            
+        except Exception as e:
+            logger.error(f"❌ Start streaming response error: {e}")
+            self._handle_streaming_error(session_id, str(e))
+    
+    def _stream_agent_response(self, session_id: str, messages: List[Dict], model: str, openrouter_service):
+        """Stream agent response in separate thread"""
+        try:
+            # Use the stored Flask app reference
+            if not self.app:
+                logger.error("❌ No Flask app reference available for streaming")
+                self._handle_streaming_error(session_id, "No Flask app reference available")
+                return
+            
+            with self.app.app_context():
+                session = self.streaming_sessions.get(session_id)
+                if not session or not session['active']:
+                    return
+                
+                client_id = session['client_id']
+                
+                # Stream response from OpenRouter
+                for chunk in openrouter_service.stream_chat_completion(messages, model):
+                    if not session.get('active', False):
+                        break
+                    
+                    # Extract content from chunk
+                    if chunk and 'choices' in chunk and len(chunk['choices']) > 0:
+                        delta = chunk['choices'][0].get('delta', {})
+                        content = delta.get('content', '')
+                        
+                        if content:
+                            # Emit chunk to client
+                            self.socketio.emit('response_stream_chunk', {
+                                'session_id': session_id,
+                                'chunk': content,
+                                'timestamp': datetime.now(timezone.utc).isoformat()
+                            }, room=client_id, namespace='/swarm')
+                
+                # End streaming
+                self._end_streaming_response(session_id)
+                
+        except Exception as e:
+            logger.error(f"❌ Stream agent response error: {e}")
+            self._handle_streaming_error(session_id, str(e))
+    
+    def _end_streaming_response(self, session_id: str):
+        """End streaming response"""
+        try:
+            session = self.streaming_sessions.get(session_id)
+            if not session:
+                return
+            
+            client_id = session['client_id']
+            agent_id = session['agent_id']
+            
+            # Mark session as inactive
+            session['active'] = False
+            session['ended_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Emit stream end
+            self.socketio.emit('response_stream_end', {
+                'session_id': session_id,
+                'agent_id': agent_id,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }, room=client_id, namespace='/swarm')
+            
+            # Update agent status back to idle
+            self.update_agent_status(agent_id, AgentStatus.IDLE)
+            
+            # Clean up session after a delay
+            import threading
+            def cleanup():
+                import time
+                time.sleep(30)  # Keep session for 30 seconds for debugging
+                if session_id in self.streaming_sessions:
+                    del self.streaming_sessions[session_id]
+            
+            thread = threading.Thread(target=cleanup)
+            thread.daemon = True
+            thread.start()
+            
+        except Exception as e:
+            logger.error(f"❌ End streaming response error: {e}")
+    
+    def _handle_streaming_error(self, session_id: str, error_message: str):
+        """Handle streaming error"""
+        try:
+            session = self.streaming_sessions.get(session_id)
+            if not session:
+                return
+            
+            client_id = session['client_id']
+            agent_id = session['agent_id']
+            
+            # Mark session as inactive
+            session['active'] = False
+            session['error'] = error_message
+            session['ended_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Emit error
+            self.socketio.emit('response_stream_error', {
+                'session_id': session_id,
+                'agent_id': agent_id,
+                'error': error_message,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }, room=client_id, namespace='/swarm')
+            
+            # Update agent status back to idle
+            self.update_agent_status(agent_id, AgentStatus.IDLE)
+            
+        except Exception as e:
+            logger.error(f"❌ Handle streaming error: {e}")
+    
+    def _cleanup_streaming_sessions(self, client_id: str):
+        """Clean up streaming sessions for disconnected client"""
+        try:
+            sessions_to_remove = []
+            for session_id, session in self.streaming_sessions.items():
+                if session['client_id'] == client_id:
+                    session['active'] = False
+                    sessions_to_remove.append(session_id)
+            
+            for session_id in sessions_to_remove:
+                del self.streaming_sessions[session_id]
+                
+        except Exception as e:
+            logger.error(f"❌ Cleanup streaming sessions error: {e}")
+    
+    def _get_agent_context(self, agent_id: str) -> str:
+        """Get agent-specific context for responses"""
+        agent_contexts = {
+            'email': """You are an Email Agent specialized in professional email composition, management, and workflow automation. 
+            You help users write effective emails, manage their inbox, set up email automation, and handle email-related tasks. 
+            Be professional, concise, and helpful in your responses.""",
+            
+            'calendar': """You are a Calendar Agent specialized in scheduling, time management, and calendar operations.
+            You help users schedule meetings, manage their calendar, find optimal meeting times, and organize their schedule.
+            Be efficient and considerate of time zones and scheduling conflicts.""",
+            
+            'code': """You are a Code Agent specialized in software development, programming, and technical implementation.
+            You help users write code, debug issues, review code quality, and implement technical solutions.
+            Provide clear, well-commented code examples and explain your reasoning.""",
+            
+            'debug': """You are a Debug Agent specialized in troubleshooting, system diagnostics, and problem-solving.
+            You help users identify issues, analyze error logs, debug problems, and find solutions.
+            Be systematic in your approach and provide step-by-step debugging guidance.""",
+            
+            'general': """You are a General Agent capable of handling a wide variety of tasks and coordination.
+            You help users with general questions, task coordination, and can collaborate with other specialized agents.
+            Be helpful, versatile, and ready to coordinate with other agents when needed."""
+        }
+        
+        return agent_contexts.get(agent_id, agent_contexts['general'])
+    
     def _send_system_state(self, client_id: str):
         """Send current system state to client"""
         try:
+            # Convert agent states to serializable format
+            serializable_agents = {}
+            for agent_id, state in self.agent_states.items():
+                state_dict = asdict(state)
+                state_dict['status'] = state.status.value  # Convert enum to string
+                serializable_agents[agent_id] = state_dict
+            
             system_state = {
-                'agents': {agent_id: asdict(state) for agent_id, state in self.agent_states.items()},
+                'agents': serializable_agents,
                 'active_rooms': self.active_rooms,
                 'connected_clients': len(self.connected_clients),
+                'streaming_sessions': len(self.streaming_sessions),
                 'timestamp': datetime.now(timezone.utc).isoformat()
             }
             
@@ -399,11 +649,8 @@ class SwarmWebSocketNamespace(Namespace):
             logger.error(f"❌ Send to room error: {e}")
     
     def _send_to_agent(self, message: WebSocketMessage):
-        """Send message to specific agent"""
+        """Send message to specific agent (non-streaming)"""
         try:
-            # This would integrate with the agent service
-            # For now, we'll emit to all subscribers of the agent
-            
             agent_id = message.recipient_id
             if agent_id in self.agent_states:
                 # Update agent status
@@ -474,7 +721,7 @@ class SwarmWebSocketNamespace(Namespace):
 
 
 class WebSocketService:
-    """WebSocket service for real-time agent coordination"""
+    """WebSocket service for real-time agent coordination with streaming support"""
     
     def __init__(self, app: Flask):
         self.app = app
@@ -486,11 +733,12 @@ class WebSocketService:
             engineio_logger=True
         )
         
-        # Register namespace
-        self.namespace = SwarmWebSocketNamespace('/swarm')
+        # Register namespace with app reference
+        self.namespace = SwarmWebSocketNamespace('/swarm', app)
+        self.namespace.socketio = self.socketio  # Add socketio reference
         self.socketio.on_namespace(self.namespace)
         
-        logger.info("🔌 WebSocket service initialized")
+        logger.info("🔌 WebSocket service with streaming support initialized")
     
     def get_agent_states(self) -> Dict[str, AgentState]:
         """Get current agent states"""
@@ -514,4 +762,8 @@ class WebSocketService:
     def get_active_rooms(self) -> Dict[str, Dict[str, Any]]:
         """Get active collaboration rooms"""
         return self.namespace.active_rooms
+    
+    def get_streaming_sessions(self) -> Dict[str, Dict[str, Any]]:
+        """Get active streaming sessions"""
+        return self.namespace.streaming_sessions
 

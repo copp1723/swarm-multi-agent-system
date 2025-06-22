@@ -1,12 +1,13 @@
 """
-OpenRouter service for AI model interactions
+OpenRouter service for AI model interactions with streaming support
 Robust implementation with proper error handling and model management
 """
 
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Generator, Iterator
+import requests
 
 from src.config import config
 from src.exceptions import ModelError, ValidationError
@@ -58,7 +59,7 @@ class ChatResponse:
 
 
 class OpenRouterService(BaseService):
-    """Service for interacting with OpenRouter API"""
+    """Service for interacting with OpenRouter API with streaming support"""
 
     def __init__(self):
         super().__init__("OpenRouter")
@@ -190,6 +191,121 @@ class OpenRouterService(BaseService):
             )
 
     @handle_service_errors
+    def stream_chat_completion(
+        self, messages: List[Dict[str, str]], model: str = "openai/gpt-4o"
+    ) -> Generator[Dict[str, Any], None, None]:
+        """Stream chat completion from specified model"""
+
+        # Validate inputs
+        if not messages:
+            raise ValidationError("Messages list cannot be empty")
+
+        if not model:
+            raise ValidationError("Model must be specified")
+
+        # Validate message format
+        for i, msg in enumerate(messages):
+            if not isinstance(msg, dict):
+                raise ValidationError(f"Message {i} must be a dictionary")
+            if "role" not in msg or "content" not in msg:
+                raise ValidationError(f"Message {i} must have 'role' and 'content' keys")
+            if msg["role"] not in ["system", "user", "assistant"]:
+                raise ValidationError(f"Invalid role '{msg['role']}' in message {i}")
+            if not msg["content"].strip():
+                raise ValidationError(f"Message {i} content cannot be empty")
+
+        logger.info(f"Making streaming chat completion request with model {model}")
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 2000,
+            "stream": True,
+        }
+
+        try:
+            # Use requests directly for streaming
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                stream=True,
+                timeout=30
+            )
+            
+            response.raise_for_status()
+
+            # Process streaming response
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    
+                    # Skip empty lines and comments
+                    if not line.strip() or line.startswith('#'):
+                        continue
+                    
+                    # Handle SSE format
+                    if line.startswith('data: '):
+                        data_str = line[6:]  # Remove 'data: ' prefix
+                        
+                        # Check for end of stream
+                        if data_str.strip() == '[DONE]':
+                            break
+                        
+                        try:
+                            chunk = json.loads(data_str)
+                            yield chunk
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse streaming chunk: {e}")
+                            continue
+
+        except requests.exceptions.RequestException as e:
+            raise ModelError(
+                "Failed to make streaming request",
+                error_code="STREAMING_REQUEST_ERROR",
+                details={"error": str(e)},
+            )
+        except Exception as e:
+            raise ModelError(
+                "Unexpected error during streaming",
+                error_code="STREAMING_ERROR",
+                details={"error": str(e)},
+            )
+
+    @handle_service_errors
+    def chat_completion_with_messages(
+        self, messages: List[Dict[str, str]], model: str = "openai/gpt-4o", stream: bool = False
+    ) -> ChatResponse:
+        """Get chat completion with raw message format"""
+
+        # Validate inputs
+        if not messages:
+            raise ValidationError("Messages list cannot be empty")
+
+        if not model:
+            raise ValidationError("Model must be specified")
+
+        # If streaming is requested, use streaming method
+        if stream:
+            full_content = ""
+            for chunk in self.stream_chat_completion(messages, model):
+                if chunk and 'choices' in chunk and len(chunk['choices']) > 0:
+                    delta = chunk['choices'][0].get('delta', {})
+                    content = delta.get('content', '')
+                    if content:
+                        full_content += content
+            
+            return ChatResponse(content=full_content, model=model)
+
+        # Convert to ChatMessage objects for regular completion
+        chat_messages = []
+        for msg in messages:
+            chat_messages.append(ChatMessage(role=msg["role"], content=msg["content"]))
+
+        return self.chat_completion(chat_messages, model)
+
+    @handle_service_errors
     def get_model_info(self, model_id: str) -> Optional[ModelInfo]:
         """Get information about a specific model"""
         models = self.get_available_models()
@@ -201,3 +317,17 @@ class OpenRouterService(BaseService):
     def is_model_available(self, model_id: str) -> bool:
         """Check if a model is available"""
         return self.get_model_info(model_id) is not None
+
+    def get_popular_models(self) -> List[str]:
+        """Get list of popular model IDs for quick access"""
+        return [
+            "openai/gpt-4o",
+            "anthropic/claude-3.5-sonnet",
+            "deepseek/deepseek-chat",
+            "google/gemini-pro",
+            "openai/gpt-4o-mini",
+            "meta-llama/llama-3.1-70b-instruct",
+            "mistralai/mistral-large",
+            "cohere/command-r-plus"
+        ]
+
