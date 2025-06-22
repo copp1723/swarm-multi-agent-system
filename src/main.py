@@ -13,6 +13,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+from flask_socketio import SocketIO, Namespace, emit
 
 # Import configuration
 from src.config_flexible import get_config
@@ -93,6 +94,10 @@ def create_app(test_config=None):
 
     # Enable CORS for all routes
     CORS(app, origins=config.api.cors_origins)
+
+    # Initialize SocketIO
+    socketio = SocketIO(app, cors_allowed_origins=config.api.cors_origins, 
+                       async_mode='threading', logger=True, engineio_logger=True)
 
     # Initialize database
     db.init_app(app)
@@ -357,13 +362,72 @@ def create_app(test_config=None):
     logger.info(f"Available services: {', '.join(config.get_enabled_services())}")
     logger.info(f"Features enabled: user_registration_enabled")
 
-    return app
+    # Store socketio in app context for access in other modules
+    app.socketio = socketio
+
+    return app, socketio
+
+
+class SwarmNamespace(Namespace):
+    """Socket.IO namespace for Swarm multi-agent system"""
+    
+    def on_connect(self):
+        """Handle client connection"""
+        logger.info(f"Client connected: {request.sid}")
+        emit('status', {'message': 'Connected to Swarm', 'connected': True})
+    
+    def on_disconnect(self):
+        """Handle client disconnection"""
+        logger.info(f"Client disconnected: {request.sid}")
+    
+    def on_user_message(self, data):
+        """Handle user messages to agents"""
+        try:
+            logger.info(f"Received message: {data}")
+            
+            # Get agent service from app context
+            from flask import current_app
+            agent_service = current_app.websocket_service.agent_service
+            
+            # Extract message data
+            message = data.get('message', '')
+            agent_id = data.get('agent_id', 'general_agent')
+            model = data.get('model', 'openai/gpt-4o')
+            
+            if not message:
+                emit('error', {'message': 'Message is required'})
+                return
+            
+            # Send typing indicator
+            emit('agent_typing', {'agent_id': agent_id, 'typing': True})
+            
+            # Get agent response
+            response = agent_service.chat_with_agent(agent_id, message, model)
+            
+            # Send response back to client
+            emit('agent_response', {
+                'agent_id': agent_id,
+                'message': response.content,
+                'model': response.model,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
+            
+            # Stop typing indicator
+            emit('agent_typing', {'agent_id': agent_id, 'typing': False})
+            
+        except Exception as e:
+            logger.error(f"Error handling user message: {e}")
+            emit('error', {'message': f'Error processing message: {str(e)}'})
+            emit('agent_typing', {'agent_id': agent_id, 'typing': False})
 
 
 # Create the application instance
-app = create_app()
+app, socketio = create_app()
+
+# Register the Swarm namespace
+socketio.on_namespace(SwarmNamespace('/swarm'))
 
 if __name__ == "__main__":
     # Development server
     config = get_config()
-    app.run(host=config.host, port=config.port, debug=config.debug)
+    socketio.run(app, host=config.host, port=config.port, debug=config.debug)
