@@ -4,9 +4,13 @@ services:
     env: python
     region: oregon
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python -m compileall src/
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 src.main:app
     healthCheckPath: /health
+    healthCheckTimeout: 5
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
@@ -27,15 +31,30 @@ services:
         value: "60"
       - key: MAX_CONVERSATION_CONTEXT
         value: "20"
+      # Database configuration
       - key: DATABASE_URL
         fromDatabase:
           name: swarm-agents-db
           property: connectionString
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "10"
+      # Redis configuration
       - key: REDIS_URL
         fromService:
           type: redis
           name: swarm-agents-redis
           property: connectionString
+      - key: REDIS_MAX_CONNECTIONS
+        value: "50"
+      # Logging and monitoring
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: SENTRY_DSN
+        value: ""
+      - key: PROMETHEUS_METRICS_PORT
+        value: "9090"
       # Secrets: fill these on the Render dashboard after first deploy
       - key: SECRET_KEY
         value: ""
@@ -56,13 +75,11 @@ services:
     name: swarm-agents-redis
     region: oregon
     plan: starter
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
+    ipAllowList: []  # Only allow internal Render services
 
 databases:
   - name: swarm-agents-db
     databaseName: swarm_agents
-    user: swarm_user
+    user: swarm_agents_user
     region: oregon
     plan: basic-256
