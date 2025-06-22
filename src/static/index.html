@@ -7,7 +7,6 @@
     <style>
         /* Modern, soft color palette - Enhanced for chat focus */
         :root {
-            /* Light theme */
             --bg-primary: #f8f9fb;
             --bg-secondary: #f1f3f6;
             --bg-tertiary: #ffffff;
@@ -19,7 +18,6 @@
             --accent-orange: #ff9a56;
             --accent-purple: #a78bfa;
             --accent-green: #48bb78;
-            --accent-blue: #4299e1;
             --border-light: #e2e8f0;
             --border-subtle: #edf2f7;
             --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
@@ -28,31 +26,6 @@
             --radius: 12px;
             --radius-lg: 16px;
             --radius-xl: 20px;
-            --collaboration-bg: rgba(167, 139, 250, 0.05);
-            --search-highlight: #fef3c7;
-        }
-
-        /* Dark theme */
-        [data-theme="dark"] {
-            --bg-primary: #1a1b23;
-            --bg-secondary: #1f202a;
-            --bg-tertiary: #25262f;
-            --bg-sidebar: #1e1f28;
-            --bg-chat: #181921;
-            --text-primary: #e2e8f0;
-            --text-secondary: #a0aec0;
-            --text-muted: #718096;
-            --accent-orange: #ff9a56;
-            --accent-purple: #a78bfa;
-            --accent-green: #48bb78;
-            --accent-blue: #4299e1;
-            --border-light: #2d3748;
-            --border-subtle: #374151;
-            --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.1);
-            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-            --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-            --collaboration-bg: rgba(167, 139, 250, 0.1);
-            --search-highlight: #92400e;
         }
 
         * {
@@ -69,7 +42,6 @@
             overflow: hidden;
             font-size: 14px;
             line-height: 1.5;
-            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .app-container {
@@ -110,72 +82,6 @@
             padding: 4px 8px;
             border-radius: 6px;
             display: inline-block;
-        }
-
-        /* Theme Toggle */
-        .theme-toggle {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-light);
-            border-radius: 10px;
-            padding: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-        }
-
-        .theme-toggle:hover {
-            background: var(--bg-secondary);
-            transform: scale(1.1);
-        }
-
-        .theme-toggle svg {
-            width: 18px;
-            height: 18px;
-            color: var(--text-secondary);
-        }
-
-        /* Search Bar */
-        .search-container {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .search-wrapper {
-            position: relative;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 10px 14px 10px 40px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-light);
-            border-radius: 10px;
-            font-size: 13px;
-            color: var(--text-primary);
-            transition: all 0.2s ease;
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: var(--accent-orange);
-            background: var(--bg-tertiary);
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            color: var(--text-muted);
         }
 
         .agents-section {
@@ -318,57 +224,6 @@
             50% { opacity: 0.5; }
         }
 
-        /* Collaboration Room Indicator */
-        .collaboration-indicator {
-            margin-top: 20px;
-            padding: 16px;
-            background: var(--collaboration-bg);
-            border-radius: var(--radius);
-            border: 1px solid var(--accent-purple);
-            display: none;
-        }
-
-        .collaboration-indicator.active {
-            display: block;
-        }
-
-        .collaboration-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--accent-purple);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .collaborating-agents {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .collaborating-agent {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: var(--bg-tertiary);
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .collaborating-agent-icon {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            color: white;
-        }
-
         /* Enhanced Main Content Area */
         .main-content {
             flex: 1;
@@ -441,15 +296,10 @@
             gap: 16px;
         }
 
-        /* Enhanced Model Selector */
         .model-selector {
             display: flex;
             align-items: center;
             gap: 12px;
-        }
-
-        .model-selector-wrapper {
-            position: relative;
         }
 
         .model-dropdown {
@@ -462,9 +312,7 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
-            min-width: 180px;
-            appearance: none;
-            padding-right: 36px;
+            min-width: 140px;
         }
 
         .model-dropdown:hover {
@@ -476,151 +324,6 @@
             outline: none;
             border-color: var(--accent-orange);
             box-shadow: 0 0 0 3px rgba(255, 154, 86, 0.1);
-        }
-
-        .model-settings-btn {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .model-settings-btn:hover {
-            color: var(--accent-orange);
-        }
-
-        /* Model Settings Modal */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: var(--bg-tertiary);
-            border-radius: var(--radius-xl);
-            padding: 32px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow-large);
-        }
-
-        .modal-header {
-            margin-bottom: 24px;
-        }
-
-        .modal-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-        }
-
-        .modal-subtitle {
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .model-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-
-        .model-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            transition: all 0.2s ease;
-        }
-
-        .model-item:hover {
-            border-color: var(--accent-orange);
-            background: var(--bg-secondary);
-        }
-
-        .model-info {
-            flex: 1;
-        }
-
-        .model-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .model-description {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .model-checkbox {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-        }
-
-        .btn-primary {
-            background: var(--accent-orange);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-medium);
-        }
-
-        .btn-secondary {
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-light);
-        }
-
-        .btn-secondary:hover {
-            background: var(--bg-primary);
         }
 
         .connection-status {
@@ -664,55 +367,11 @@
             scroll-behavior: smooth;
         }
 
-        /* Search Results */
-        .search-results {
-            background: var(--bg-secondary);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin-bottom: 16px;
-            display: none;
-        }
-
-        .search-results.active {
-            display: block;
-        }
-
-        .search-results-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .search-results-count {
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .close-search {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 4px;
-        }
-
-        .close-search:hover {
-            color: var(--text-primary);
-        }
-
         .message {
             display: flex;
             gap: 16px;
             max-width: 85%;
             animation: messageSlideIn 0.3s ease-out;
-        }
-
-        .message.highlighted {
-            background: var(--search-highlight);
-            padding: 8px;
-            border-radius: var(--radius);
-            margin: -8px;
         }
 
         @keyframes messageSlideIn {
@@ -813,39 +472,6 @@
         @keyframes blink {
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
-        }
-
-        /* Agent Collaboration Message */
-        .message.collaboration {
-            background: var(--collaboration-bg);
-            padding: 16px;
-            border-radius: var(--radius);
-            border: 1px solid var(--accent-purple);
-            max-width: 100%;
-        }
-
-        .collaboration-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .collaboration-icon {
-            width: 32px;
-            height: 32px;
-            background: var(--accent-purple);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-
-        .collaboration-agents-list {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
         }
 
         /* Enhanced Chat Input */
@@ -1077,6 +703,355 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-large);
+            max-width: 90vw;
+            max-height: 90vh;
+            width: 800px;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-secondary);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-content {
+            padding: 24px;
+            max-height: calc(90vh - 80px);
+            overflow-y: auto;
+        }
+
+        /* Memory Viewer Styles */
+        .memory-viewer {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .memory-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .memory-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .memory-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .memory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .memory-type {
+            background: var(--accent-orange);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .memory-date {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .memory-content {
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .memory-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Email Templates Styles */
+        .email-templates {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .template-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .template-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .template-header h4 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .template-category {
+            background: var(--accent-purple);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .template-preview {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* File Browser Styles */
+        .file-browser {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .file-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .breadcrumb {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: var(--bg-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            border: 1px solid var(--border-light);
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-orange);
+        }
+
+        .file-icon {
+            font-size: 20px;
+            margin-right: 12px;
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background: var(--accent-orange);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: #e6822a;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+            transform: translateY(-1px);
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Utility Styles */
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px 20px;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e53e3e;
+            text-align: center;
+            padding: 20px;
+            background: rgba(229, 62, 62, 0.1);
+            border-radius: 6px;
+            border: 1px solid rgba(229, 62, 62, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -1086,45 +1061,12 @@
             <div class="sidebar-header">
                 <div class="logo">Swarm Multi-Agent System</div>
                 <div class="version">v2.0</div>
-                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
-                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                        <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/>
-                        <line x1="12" y1="21" x2="12" y2="23"/>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/>
-                        <line x1="21" y1="12" x2="23" y2="12"/>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="search-container">
-                <div class="search-wrapper">
-                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="m21 21-4.35-4.35"/>
-                    </svg>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search messages...">
-                </div>
             </div>
             
             <div class="agents-section">
                 <div class="section-title">Available Agents</div>
                 <div class="agent-list" id="agentList">
                     <!-- Agents will be populated here -->
-                </div>
-                
-                <div class="collaboration-indicator" id="collaborationIndicator">
-                    <div class="collaboration-title">Agents Collaborating</div>
-                    <div class="collaborating-agents" id="collaboratingAgents">
-                        <!-- Collaborating agents will be shown here -->
-                    </div>
                 </div>
             </div>
         </div>
@@ -1145,17 +1087,14 @@
                 </div>
                 <div class="header-controls">
                     <div class="model-selector">
-                        <div class="model-selector-wrapper">
-                            <select class="model-dropdown" id="modelSelector">
-                                <!-- Models will be populated dynamically -->
-                            </select>
-                            <button class="model-settings-btn" id="modelSettingsBtn" title="Customize models">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="3"/>
-                                    <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3m18.36-6.36l-4.24 4.24M7.88 7.88L3.64 3.64m16.72 16.72l-4.24-4.24M7.88 16.12l-4.24 4.24"/>
-                                </svg>
-                            </button>
-                        </div>
+                        <select class="model-dropdown" id="modelSelector">
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                            <option value="google/gemini-pro">Gemini Pro</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                        </select>
                     </div>
                     <div class="connection-status">
                         <div class="connection-dot" id="connectionDot"></div>
@@ -1165,18 +1104,6 @@
             </div>
 
             <div class="chat-container">
-                <div class="search-results" id="searchResults">
-                    <div class="search-results-header">
-                        <span class="search-results-count" id="searchResultsCount"></span>
-                        <button class="close-search" id="closeSearch">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                <line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                
                 <div class="chat-messages" id="chatMessages">
                     <!-- Enhanced Welcome State -->
                     <div class="welcome-state" id="welcomeState">
@@ -1186,9 +1113,9 @@
                             Select an agent from the sidebar to start a conversation. Each agent specializes in different tasks and can collaborate with others to solve complex problems.
                         </p>
                         <div class="quick-actions">
-                            <div class="quick-action" onclick="selectAgent('email')">📧 Email Tasks</div>
-                            <div class="quick-action" onclick="selectAgent('calendar')">📅 Schedule Meeting</div>
-                            <div class="quick-action" onclick="selectAgent('code')">💻 Code Review</div>
+                            <div class="quick-action" onclick="swarmUI.showMemoryViewer()">🧠 Memory</div>
+                            <div class="quick-action" onclick="swarmUI.showEmailTemplates()">📧 Templates</div>
+                            <div class="quick-action" onclick="swarmUI.showFileBrowser()">📁 Files</div>
                             <div class="quick-action" onclick="selectAgent('debug')">🔍 Debug Issue</div>
                         </div>
                     </div>
@@ -1216,26 +1143,9 @@
         </div>
     </div>
 
-    <!-- Model Settings Modal -->
-    <div class="modal-overlay" id="modelSettingsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Customize AI Models</h3>
-                <p class="modal-subtitle">Select up to 5 models to appear in your dropdown</p>
-            </div>
-            <div class="model-list" id="modelList">
-                <!-- Models will be populated here -->
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeModelSettings()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveModelSettings()">Save</button>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script>
-        // Enhanced Swarm UI Controller with all requested features
+        // Enhanced Swarm UI Controller with Response Streaming
         class SwarmUI {
             constructor() {
                 this.socket = null;
@@ -1244,229 +1154,16 @@
                 this.messages = [];
                 this.isStreaming = false;
                 this.currentStreamingMessage = null;
-                this.collaboratingAgents = [];
-                this.availableModels = [];
-                this.selectedModels = this.loadSelectedModels();
-                this.searchQuery = '';
-                this.theme = this.loadTheme();
                 this.init();
             }
 
             init() {
-                this.applyTheme();
                 this.initializeWebSocket();
                 this.loadAgents();
-                this.loadAvailableModels();
                 this.setupEventListeners();
                 this.autoResizeTextarea();
             }
 
-            // Theme Management
-            loadTheme() {
-                return localStorage.getItem('swarm-theme') || 'light';
-            }
-
-            saveTheme(theme) {
-                localStorage.setItem('swarm-theme', theme);
-                this.theme = theme;
-            }
-
-            applyTheme() {
-                document.documentElement.setAttribute('data-theme', this.theme);
-                this.updateThemeIcon();
-            }
-
-            updateThemeIcon() {
-                const sunIcon = document.querySelector('.sun-icon');
-                const moonIcon = document.querySelector('.moon-icon');
-                
-                if (this.theme === 'dark') {
-                    sunIcon.style.display = 'block';
-                    moonIcon.style.display = 'none';
-                } else {
-                    sunIcon.style.display = 'none';
-                    moonIcon.style.display = 'block';
-                }
-            }
-
-            toggleTheme() {
-                const newTheme = this.theme === 'light' ? 'dark' : 'light';
-                this.saveTheme(newTheme);
-                this.applyTheme();
-            }
-
-            // Model Management
-            loadSelectedModels() {
-                const saved = localStorage.getItem('swarm-selected-models');
-                if (saved) {
-                    return JSON.parse(saved);
-                }
-                // Default models
-                return [
-                    'openai/gpt-4o',
-                    'anthropic/claude-3.5-sonnet',
-                    'deepseek/deepseek-chat',
-                    'google/gemini-pro',
-                    'openai/gpt-4o-mini'
-                ];
-            }
-
-            saveSelectedModels(models) {
-                localStorage.setItem('swarm-selected-models', JSON.stringify(models));
-                this.selectedModels = models;
-                this.updateModelSelector();
-            }
-
-            async loadAvailableModels() {
-                try {
-                    const response = await fetch('/api/agents/models');
-                    
-                    // Check if response is ok before parsing JSON
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    if (data.success && data.data && data.data.models) {
-                        this.availableModels = data.data.models;
-                        this.updateModelSelector();
-                    } else {
-                        throw new Error('Invalid response format');
-                    }
-                } catch (error) {
-                    console.error('Failed to load models:', error);
-                    // Use default models as fallback
-                    this.availableModels = [
-                        { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'Latest OpenAI model' },
-                        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Anthropic\'s latest model' },
-                        { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat', description: 'Cost-effective model' },
-                        { id: 'google/gemini-pro', name: 'Gemini Pro', description: 'Google\'s advanced model' },
-                        { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'Faster, cheaper GPT-4' },
-                        { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', description: 'Open source powerhouse' },
-                        { id: 'mistralai/mistral-large', name: 'Mistral Large', description: 'European AI model' },
-                        { id: 'cohere/command-r-plus', name: 'Command R+', description: 'Cohere\'s flagship model' }
-                    ];
-                    this.updateModelSelector();
-                }
-            }
-
-            updateModelSelector() {
-                const selector = document.getElementById('modelSelector');
-                selector.innerHTML = '';
-                
-                // Only show selected models in dropdown
-                this.selectedModels.forEach(modelId => {
-                    const model = this.availableModels.find(m => m.id === modelId);
-                    if (model) {
-                        const option = document.createElement('option');
-                        option.value = model.id;
-                        option.textContent = model.name;
-                        selector.appendChild(option);
-                    }
-                });
-            }
-
-            openModelSettings() {
-                const modal = document.getElementById('modelSettingsModal');
-                const modelList = document.getElementById('modelList');
-                
-                // Clear existing list
-                modelList.innerHTML = '';
-                
-                // Add all available models
-                this.availableModels.forEach(model => {
-                    const item = document.createElement('div');
-                    item.className = 'model-item';
-                    
-                    const isSelected = this.selectedModels.includes(model.id);
-                    
-                    item.innerHTML = `
-                        <div class="model-info">
-                            <div class="model-name">${model.name}</div>
-                            <div class="model-description">${model.description || model.id}</div>
-                        </div>
-                        <input type="checkbox" class="model-checkbox" value="${model.id}" ${isSelected ? 'checked' : ''}>
-                    `;
-                    
-                    modelList.appendChild(item);
-                });
-                
-                modal.classList.add('active');
-            }
-
-            saveModelSettings() {
-                const checkboxes = document.querySelectorAll('.model-checkbox:checked');
-                const selectedModels = Array.from(checkboxes).map(cb => cb.value);
-                
-                if (selectedModels.length === 0) {
-                    alert('Please select at least one model');
-                    return;
-                }
-                
-                if (selectedModels.length > 5) {
-                    alert('Please select no more than 5 models');
-                    return;
-                }
-                
-                this.saveSelectedModels(selectedModels);
-                this.closeModelSettings();
-            }
-
-            closeModelSettings() {
-                document.getElementById('modelSettingsModal').classList.remove('active');
-            }
-
-            // Search functionality
-            performSearch(query) {
-                this.searchQuery = query.toLowerCase();
-                
-                if (!this.searchQuery) {
-                    this.clearSearch();
-                    return;
-                }
-                
-                // Search through messages
-                const results = [];
-                const messages = document.querySelectorAll('.message');
-                
-                messages.forEach(message => {
-                    const text = message.textContent.toLowerCase();
-                    if (text.includes(this.searchQuery)) {
-                        results.push(message);
-                        message.classList.add('highlighted');
-                    } else {
-                        message.classList.remove('highlighted');
-                    }
-                });
-                
-                // Show search results
-                const searchResults = document.getElementById('searchResults');
-                const searchResultsCount = document.getElementById('searchResultsCount');
-                
-                if (results.length > 0) {
-                    searchResults.classList.add('active');
-                    searchResultsCount.textContent = `Found ${results.length} message${results.length > 1 ? 's' : ''}`;
-                    
-                    // Scroll to first result
-                    results[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    searchResults.classList.add('active');
-                    searchResultsCount.textContent = 'No results found';
-                }
-            }
-
-            clearSearch() {
-                this.searchQuery = '';
-                document.getElementById('searchInput').value = '';
-                document.getElementById('searchResults').classList.remove('active');
-                
-                // Remove all highlights
-                document.querySelectorAll('.message.highlighted').forEach(message => {
-                    message.classList.remove('highlighted');
-                });
-            }
-
-            // WebSocket initialization
             initializeWebSocket() {
                 this.socket = io('/swarm');
                 
@@ -1486,11 +1183,6 @@
 
                 this.socket.on('agent_status_update', (data) => {
                     this.updateAgentStatus(data.agent_id, data.status);
-                });
-
-                // Collaboration events
-                this.socket.on('agent_collaboration', (data) => {
-                    this.handleAgentCollaboration(data);
                 });
 
                 // Response streaming events
@@ -1531,6 +1223,7 @@
                     const data = await response.json();
                     console.log('API response:', data);
                     
+                    // Handle the correct API response format
                     if (data.success && data.data && data.data.agents) {
                         this.agents = data.data.agents.map(agent => ({
                             id: agent.agent_id,
@@ -1625,124 +1318,7 @@
                 }
             }
 
-            // Agent collaboration handling
-            handleAgentCollaboration(data) {
-                this.collaboratingAgents = data.agents || [];
-                this.updateCollaborationIndicator();
-                
-                // Add collaboration message to chat
-                const message = document.createElement('div');
-                message.className = 'message collaboration';
-                
-                const agentsList = this.collaboratingAgents.map(agent => 
-                    `<div class="collaborating-agent">
-                        <div class="collaborating-agent-icon ${agent}" style="background: ${this.getAgentColor(agent)}">
-                            ${this.getAgentIcon(agent)}
-                        </div>
-                        <span>${this.agents.find(a => a.id === agent)?.name || agent}</span>
-                    </div>`
-                ).join('');
-                
-                message.innerHTML = `
-                    <div class="collaboration-header">
-                        <div class="collaboration-icon">🤝</div>
-                        <span>Agents are collaborating to solve your request</span>
-                    </div>
-                    <div class="collaboration-agents-list">
-                        ${agentsList}
-                    </div>
-                `;
-                
-                document.getElementById('chatMessages').appendChild(message);
-                this.scrollToBottom();
-            }
-
-            updateCollaborationIndicator() {
-                const indicator = document.getElementById('collaborationIndicator');
-                const agentsContainer = document.getElementById('collaboratingAgents');
-                
-                if (this.collaboratingAgents.length > 0) {
-                    indicator.classList.add('active');
-                    
-                    agentsContainer.innerHTML = this.collaboratingAgents.map(agentId => {
-                        const agent = this.agents.find(a => a.id === agentId);
-                        return `
-                            <div class="collaborating-agent">
-                                <div class="collaborating-agent-icon ${agentId}" style="background: ${this.getAgentColor(agentId)}">
-                                    ${this.getAgentIcon(agentId)}
-                                </div>
-                                <span>${agent?.name || agentId}</span>
-                            </div>
-                        `;
-                    }).join('');
-                } else {
-                    indicator.classList.remove('active');
-                }
-            }
-
-            getAgentColor(agentId) {
-                const colors = {
-                    email: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    calendar: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                    code: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                    debug: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                    general: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
-                };
-                return colors[agentId] || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            }
-
             setupEventListeners() {
-                // Theme toggle
-                document.getElementById('themeToggle').addEventListener('click', () => {
-                    this.toggleTheme();
-                });
-
-                // Search
-                const searchInput = document.getElementById('searchInput');
-                let searchTimeout;
-                searchInput.addEventListener('input', (e) => {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        this.performSearch(e.target.value);
-                    }, 300);
-                });
-
-                document.getElementById('closeSearch').addEventListener('click', () => {
-                    this.clearSearch();
-                });
-
-                // Global keyboard shortcuts
-                document.addEventListener('keydown', (e) => {
-                    // Ctrl/Cmd + K for search
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                        e.preventDefault();
-                        searchInput.focus();
-                        searchInput.select();
-                    }
-                    
-                    // Escape to close modals and clear search
-                    if (e.key === 'Escape') {
-                        if (document.getElementById('modelSettingsModal').classList.contains('active')) {
-                            this.closeModelSettings();
-                        } else if (document.getElementById('searchResults').classList.contains('active')) {
-                            this.clearSearch();
-                        }
-                    }
-                });
-
-                // Model settings
-                document.getElementById('modelSettingsBtn').addEventListener('click', () => {
-                    this.openModelSettings();
-                });
-
-                // Modal overlay click to close
-                document.getElementById('modelSettingsModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'modelSettingsModal') {
-                        this.closeModelSettings();
-                    }
-                });
-
-                // Chat input
                 const chatInput = document.getElementById('chatInput');
                 const sendButton = document.getElementById('sendButton');
 
@@ -1818,7 +1394,6 @@
                 const avatar = document.createElement('div');
                 avatar.className = 'message-avatar agent';
                 avatar.innerHTML = this.getAgentIcon(agentId);
-                avatar.style.background = this.getAgentColor(agentId);
 
                 const messageContent = document.createElement('div');
                 messageContent.className = 'message-content';
@@ -1838,7 +1413,7 @@
                 messageElement.appendChild(messageContent);
                 
                 messagesContainer.appendChild(messageElement);
-                this.scrollToBottom();
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 
                 this.currentStreamingMessage = messageText;
             }
@@ -1859,7 +1434,9 @@
                 newCursor.className = 'streaming-cursor';
                 this.currentStreamingMessage.appendChild(newCursor);
                 
-                this.scrollToBottom();
+                // Auto-scroll
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
 
             endStreamingResponse() {
@@ -1917,7 +1494,6 @@
                     avatar.textContent = 'You';
                 } else {
                     avatar.innerHTML = this.getAgentIcon(agentId || this.currentAgent?.id);
-                    avatar.style.background = this.getAgentColor(agentId || this.currentAgent?.id);
                 }
 
                 const messageContent = document.createElement('div');
@@ -1944,15 +1520,7 @@
                 messageElement.appendChild(messageContent);
                 
                 messagesContainer.appendChild(messageElement);
-                this.scrollToBottom();
-                
-                // Store message for search
-                this.messages.push({
-                    content,
-                    type,
-                    agentId,
-                    timestamp: new Date()
-                });
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
 
             formatCodeBlocks(content) {
@@ -1964,7 +1532,6 @@
             clearMessages() {
                 const messagesContainer = document.getElementById('chatMessages');
                 messagesContainer.innerHTML = '';
-                this.messages = [];
             }
 
             updateAgentStatus(agentId, status) {
@@ -1974,28 +1541,207 @@
                 }
             }
 
-            scrollToBottom() {
-                const messagesContainer = document.getElementById('chatMessages');
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Memory Viewer UI
+            showMemoryViewer() {
+                this.showModal('Memory Viewer', this.createMemoryViewerContent());
+                this.loadMemoryData();
+            }
+
+            createMemoryViewerContent() {
+                return `
+                    <div class="memory-viewer">
+                        <div class="memory-controls">
+                            <button onclick="swarmUI.refreshMemory()" class="btn-secondary">🔄 Refresh</button>
+                            <button onclick="swarmUI.clearMemory()" class="btn-danger">🗑️ Clear All</button>
+                        </div>
+                        <div class="memory-list" id="memoryList">
+                            <div class="loading">Loading memory data...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadMemoryData() {
+                try {
+                    const response = await fetch('/api/memory/');
+                    const data = await response.json();
+                    this.renderMemoryData(data.data || []);
+                } catch (error) {
+                    console.error('Failed to load memory:', error);
+                    document.getElementById('memoryList').innerHTML = '<div class="error">Failed to load memory data</div>';
+                }
+            }
+
+            renderMemoryData(memories) {
+                const memoryList = document.getElementById('memoryList');
+                if (!memories.length) {
+                    memoryList.innerHTML = '<div class="empty-state">No memory data found</div>';
+                    return;
+                }
+
+                memoryList.innerHTML = memories.map(memory => `
+                    <div class="memory-item">
+                        <div class="memory-header">
+                            <span class="memory-type">${memory.type || 'conversation'}</span>
+                            <span class="memory-date">${new Date(memory.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="memory-content">${memory.content}</div>
+                        <div class="memory-actions">
+                            <button onclick="swarmUI.deleteMemory('${memory.id}')" class="btn-small btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Email Templates UI
+            showEmailTemplates() {
+                this.showModal('Email Templates', this.createEmailTemplatesContent());
+                this.loadEmailTemplates();
+            }
+
+            createEmailTemplatesContent() {
+                return `
+                    <div class="email-templates">
+                        <div class="template-controls">
+                            <button onclick="swarmUI.createEmailTemplate()" class="btn-primary">➕ New Template</button>
+                            <button onclick="swarmUI.refreshTemplates()" class="btn-secondary">🔄 Refresh</button>
+                        </div>
+                        <div class="template-list" id="templateList">
+                            <div class="loading">Loading email templates...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadEmailTemplates() {
+                try {
+                    const response = await fetch('/api/email/templates');
+                    const data = await response.json();
+                    this.renderEmailTemplates(data.data || []);
+                } catch (error) {
+                    console.error('Failed to load templates:', error);
+                    document.getElementById('templateList').innerHTML = '<div class="error">Failed to load email templates</div>';
+                }
+            }
+
+            renderEmailTemplates(templates) {
+                const templateList = document.getElementById('templateList');
+                if (!templates.length) {
+                    templateList.innerHTML = '<div class="empty-state">No email templates found</div>';
+                    return;
+                }
+
+                templateList.innerHTML = templates.map(template => `
+                    <div class="template-item">
+                        <div class="template-header">
+                            <h4>${template.name}</h4>
+                            <span class="template-category">${template.category || 'General'}</span>
+                        </div>
+                        <div class="template-preview">${template.subject}</div>
+                        <div class="template-actions">
+                            <button onclick="swarmUI.useTemplate('${template.id}')" class="btn-primary">Use</button>
+                            <button onclick="swarmUI.editTemplate('${template.id}')" class="btn-secondary">Edit</button>
+                            <button onclick="swarmUI.deleteTemplate('${template.id}')" class="btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // File Browser UI
+            showFileBrowser() {
+                this.showModal('File Browser', this.createFileBrowserContent());
+                this.loadFileSystem('/workspace');
+            }
+
+            createFileBrowserContent() {
+                return `
+                    <div class="file-browser">
+                        <div class="file-controls">
+                            <div class="breadcrumb" id="fileBreadcrumb">/workspace</div>
+                            <div class="file-actions">
+                                <button onclick="swarmUI.createFolder()" class="btn-secondary">📁 New Folder</button>
+                                <button onclick="swarmUI.uploadFile()" class="btn-secondary">📤 Upload</button>
+                                <button onclick="swarmUI.refreshFiles()" class="btn-secondary">🔄 Refresh</button>
+                            </div>
+                        </div>
+                        <div class="file-list" id="fileList">
+                            <div class="loading">Loading files...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadFileSystem(path = '/workspace') {
+                try {
+                    const response = await fetch(`/api/filesystem/directories/${encodeURIComponent(path)}`);
+                    const data = await response.json();
+                    this.renderFileSystem(data.data || [], path);
+                } catch (error) {
+                    console.error('Failed to load files:', error);
+                    document.getElementById('fileList').innerHTML = '<div class="error">Failed to load file system</div>';
+                }
+            }
+
+            renderFileSystem(files, currentPath) {
+                const fileList = document.getElementById('fileList');
+                const breadcrumb = document.getElementById('fileBreadcrumb');
+                
+                if (breadcrumb) breadcrumb.textContent = currentPath;
+
+                if (!files.length) {
+                    fileList.innerHTML = '<div class="empty-state">No files found</div>';
+                    return;
+                }
+
+                fileList.innerHTML = files.map(file => `
+                    <div class="file-item ${file.type}" onclick="swarmUI.handleFileClick('${file.path}', '${file.type}')">
+                        <div class="file-icon">${file.type === 'directory' ? '📁' : '📄'}</div>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-meta">
+                                ${file.type === 'file' ? `${this.formatFileSize(file.size)} • ` : ''}
+                                ${new Date(file.modified).toLocaleDateString()}
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            ${file.type === 'file' ? `<button onclick="event.stopPropagation(); swarmUI.downloadFile('${file.path}')" class="btn-small">Download</button>` : ''}
+                            <button onclick="event.stopPropagation(); swarmUI.deleteFile('${file.path}')" class="btn-small btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Modal System
+            showModal(title, content) {
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>${title}</h3>
+                            <button onclick="this.closest('.modal-overlay').remove()" class="modal-close">×</button>
+                        </div>
+                        <div class="modal-content">
+                            ${content}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
         }
 
-        // Global functions for modals and quick actions
+        // Global function for quick actions
         function selectAgent(agentId) {
             if (window.swarmUI) {
                 window.swarmUI.selectAgent(agentId);
-            }
-        }
-
-        function closeModelSettings() {
-            if (window.swarmUI) {
-                window.swarmUI.closeModelSettings();
-            }
-        }
-
-        function saveModelSettings() {
-            if (window.swarmUI) {
-                window.swarmUI.saveModelSettings();
             }
         }
 
@@ -2006,3 +1752,4 @@
     </script>
 </body>
 </html>
+
