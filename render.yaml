@@ -57,9 +57,6 @@ services:
     env: postgresql
     region: oregon
     plan: starter
-    databaseName: swarm_agents
-    databaseUser: swarm_user
-
   - type: redis
     name: swarm-agents-redis
     region: oregon
