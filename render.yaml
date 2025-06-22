@@ -8,7 +8,7 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       python -m compileall src/
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --worker-class eventlet src.main:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --worker-class eventlet --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100 --preload src.main:app
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -51,7 +51,7 @@ services:
       - key: LOG_LEVEL
         value: "INFO"
       - key: SENTRY_DSN
-        value: ""
+        value: "https://2a6537a86356e27f4f6d4c351738cc25@o4509531702624256.ingest.us.sentry.io/4509539992862720"
       - key: PROMETHEUS_METRICS_PORT
         value: "9090"
       # Secrets: fill these on the Render dashboard after first deploy
@@ -69,13 +69,11 @@ services:
         value: ""
       - key: MAILGUN_SENDING_KEY
         value: ""
-
   - type: redis
     name: swarm-agents-redis
     region: oregon
     plan: starter
     ipAllowList: []  # Only allow internal Render services
-
 databases:
   - name: swarm-agents-db
     databaseName: swarm_agents
