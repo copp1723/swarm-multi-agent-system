@@ -703,6 +703,355 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-large);
+            max-width: 90vw;
+            max-height: 90vh;
+            width: 800px;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-secondary);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-content {
+            padding: 24px;
+            max-height: calc(90vh - 80px);
+            overflow-y: auto;
+        }
+
+        /* Memory Viewer Styles */
+        .memory-viewer {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .memory-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .memory-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .memory-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .memory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .memory-type {
+            background: var(--accent-orange);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .memory-date {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .memory-content {
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .memory-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Email Templates Styles */
+        .email-templates {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .template-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .template-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .template-header h4 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .template-category {
+            background: var(--accent-purple);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .template-preview {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* File Browser Styles */
+        .file-browser {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .file-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .breadcrumb {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: var(--bg-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            border: 1px solid var(--border-light);
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-orange);
+        }
+
+        .file-icon {
+            font-size: 20px;
+            margin-right: 12px;
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background: var(--accent-orange);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: #e6822a;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+            transform: translateY(-1px);
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Utility Styles */
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px 20px;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e53e3e;
+            text-align: center;
+            padding: 20px;
+            background: rgba(229, 62, 62, 0.1);
+            border-radius: 6px;
+            border: 1px solid rgba(229, 62, 62, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -764,9 +1113,9 @@
                             Select an agent from the sidebar to start a conversation. Each agent specializes in different tasks and can collaborate with others to solve complex problems.
                         </p>
                         <div class="quick-actions">
-                            <div class="quick-action" onclick="selectAgent('email')">📧 Email Tasks</div>
-                            <div class="quick-action" onclick="selectAgent('calendar')">📅 Schedule Meeting</div>
-                            <div class="quick-action" onclick="selectAgent('code')">💻 Code Review</div>
+                            <div class="quick-action" onclick="swarmUI.showMemoryViewer()">🧠 Memory</div>
+                            <div class="quick-action" onclick="swarmUI.showEmailTemplates()">📧 Templates</div>
+                            <div class="quick-action" onclick="swarmUI.showFileBrowser()">📁 Files</div>
                             <div class="quick-action" onclick="selectAgent('debug')">🔍 Debug Issue</div>
                         </div>
                     </div>
@@ -1190,6 +1539,202 @@
                 if (statusIndicator) {
                     statusIndicator.className = `status-indicator ${status}`;
                 }
+            }
+
+            // Memory Viewer UI
+            showMemoryViewer() {
+                this.showModal('Memory Viewer', this.createMemoryViewerContent());
+                this.loadMemoryData();
+            }
+
+            createMemoryViewerContent() {
+                return `
+                    <div class="memory-viewer">
+                        <div class="memory-controls">
+                            <button onclick="swarmUI.refreshMemory()" class="btn-secondary">🔄 Refresh</button>
+                            <button onclick="swarmUI.clearMemory()" class="btn-danger">🗑️ Clear All</button>
+                        </div>
+                        <div class="memory-list" id="memoryList">
+                            <div class="loading">Loading memory data...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadMemoryData() {
+                try {
+                    const response = await fetch('/api/memory/');
+                    const data = await response.json();
+                    this.renderMemoryData(data.data || []);
+                } catch (error) {
+                    console.error('Failed to load memory:', error);
+                    document.getElementById('memoryList').innerHTML = '<div class="error">Failed to load memory data</div>';
+                }
+            }
+
+            renderMemoryData(memories) {
+                const memoryList = document.getElementById('memoryList');
+                if (!memories.length) {
+                    memoryList.innerHTML = '<div class="empty-state">No memory data found</div>';
+                    return;
+                }
+
+                memoryList.innerHTML = memories.map(memory => `
+                    <div class="memory-item">
+                        <div class="memory-header">
+                            <span class="memory-type">${memory.type || 'conversation'}</span>
+                            <span class="memory-date">${new Date(memory.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="memory-content">${memory.content}</div>
+                        <div class="memory-actions">
+                            <button onclick="swarmUI.deleteMemory('${memory.id}')" class="btn-small btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Email Templates UI
+            showEmailTemplates() {
+                this.showModal('Email Templates', this.createEmailTemplatesContent());
+                this.loadEmailTemplates();
+            }
+
+            createEmailTemplatesContent() {
+                return `
+                    <div class="email-templates">
+                        <div class="template-controls">
+                            <button onclick="swarmUI.createEmailTemplate()" class="btn-primary">➕ New Template</button>
+                            <button onclick="swarmUI.refreshTemplates()" class="btn-secondary">🔄 Refresh</button>
+                        </div>
+                        <div class="template-list" id="templateList">
+                            <div class="loading">Loading email templates...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadEmailTemplates() {
+                try {
+                    const response = await fetch('/api/email/templates');
+                    const data = await response.json();
+                    this.renderEmailTemplates(data.data || []);
+                } catch (error) {
+                    console.error('Failed to load templates:', error);
+                    document.getElementById('templateList').innerHTML = '<div class="error">Failed to load email templates</div>';
+                }
+            }
+
+            renderEmailTemplates(templates) {
+                const templateList = document.getElementById('templateList');
+                if (!templates.length) {
+                    templateList.innerHTML = '<div class="empty-state">No email templates found</div>';
+                    return;
+                }
+
+                templateList.innerHTML = templates.map(template => `
+                    <div class="template-item">
+                        <div class="template-header">
+                            <h4>${template.name}</h4>
+                            <span class="template-category">${template.category || 'General'}</span>
+                        </div>
+                        <div class="template-preview">${template.subject}</div>
+                        <div class="template-actions">
+                            <button onclick="swarmUI.useTemplate('${template.id}')" class="btn-primary">Use</button>
+                            <button onclick="swarmUI.editTemplate('${template.id}')" class="btn-secondary">Edit</button>
+                            <button onclick="swarmUI.deleteTemplate('${template.id}')" class="btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // File Browser UI
+            showFileBrowser() {
+                this.showModal('File Browser', this.createFileBrowserContent());
+                this.loadFileSystem('/workspace');
+            }
+
+            createFileBrowserContent() {
+                return `
+                    <div class="file-browser">
+                        <div class="file-controls">
+                            <div class="breadcrumb" id="fileBreadcrumb">/workspace</div>
+                            <div class="file-actions">
+                                <button onclick="swarmUI.createFolder()" class="btn-secondary">📁 New Folder</button>
+                                <button onclick="swarmUI.uploadFile()" class="btn-secondary">📤 Upload</button>
+                                <button onclick="swarmUI.refreshFiles()" class="btn-secondary">🔄 Refresh</button>
+                            </div>
+                        </div>
+                        <div class="file-list" id="fileList">
+                            <div class="loading">Loading files...</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async loadFileSystem(path = '/workspace') {
+                try {
+                    const response = await fetch(`/api/filesystem/directories/${encodeURIComponent(path)}`);
+                    const data = await response.json();
+                    this.renderFileSystem(data.data || [], path);
+                } catch (error) {
+                    console.error('Failed to load files:', error);
+                    document.getElementById('fileList').innerHTML = '<div class="error">Failed to load file system</div>';
+                }
+            }
+
+            renderFileSystem(files, currentPath) {
+                const fileList = document.getElementById('fileList');
+                const breadcrumb = document.getElementById('fileBreadcrumb');
+                
+                if (breadcrumb) breadcrumb.textContent = currentPath;
+
+                if (!files.length) {
+                    fileList.innerHTML = '<div class="empty-state">No files found</div>';
+                    return;
+                }
+
+                fileList.innerHTML = files.map(file => `
+                    <div class="file-item ${file.type}" onclick="swarmUI.handleFileClick('${file.path}', '${file.type}')">
+                        <div class="file-icon">${file.type === 'directory' ? '📁' : '📄'}</div>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-meta">
+                                ${file.type === 'file' ? `${this.formatFileSize(file.size)} • ` : ''}
+                                ${new Date(file.modified).toLocaleDateString()}
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            ${file.type === 'file' ? `<button onclick="event.stopPropagation(); swarmUI.downloadFile('${file.path}')" class="btn-small">Download</button>` : ''}
+                            <button onclick="event.stopPropagation(); swarmUI.deleteFile('${file.path}')" class="btn-small btn-danger">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Modal System
+            showModal(title, content) {
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3>${title}</h3>
+                            <button onclick="this.closest('.modal-overlay').remove()" class="modal-close">×</button>
+                        </div>
+                        <div class="modal-content">
+                            ${content}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
         }
 
