@@ -6,11 +6,10 @@ services:
     plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 src.main:app
-    postDeployCommand: python migrate_db.py         # <-- Add if you want DB migrations to run after deploy!
+    postDeployCommand: python migrate_db.py
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      # Non-secret config (safe in YAML)
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: FLASK_ENV
@@ -29,7 +28,6 @@ services:
         value: "60"
       - key: MAX_CONVERSATION_CONTEXT
         value: "20"
-      # DB/Redis will be auto-populated from service creation:
       - key: DATABASE_URL
         fromDatabase:
           name: swarm-agents-db
@@ -39,7 +37,7 @@ services:
           type: redis
           name: swarm-agents-redis
           property: connectionString
-      # Everything below should be set as secrets in the dashboard after first deploy (leave value blank or dummy):
+      # Fill these in via Render dashboard for security
       - key: SECRET_KEY
         value: ""
       - key: OPENROUTER_API_KEY
