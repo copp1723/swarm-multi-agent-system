@@ -4,7 +4,7 @@ WebSocket Routes - Real-time communication endpoints
 
 import logging
 from flask import Blueprint, jsonify, request
-from src.services.websocket_service import WebSocketService, AgentStatus, MessageType
+from src.services.websocket_service import WebSocketService, AgentStatus
 from src.utils.response_helpers import success_response, error_response
 
 logger = logging.getLogger(__name__)
