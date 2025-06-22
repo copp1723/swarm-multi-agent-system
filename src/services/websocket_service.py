@@ -78,9 +78,10 @@ class AgentState:
 class SwarmWebSocketNamespace(Namespace):
     """Custom namespace for Swarm Multi-Agent System with streaming support"""
 
-    def __init__(self, namespace: str = "/swarm", app: Flask = None):
+    def __init__(self, namespace: str = "/swarm", app: Flask = None, mcp_filesystem_service=None):
         super().__init__(namespace)
         self.app = app  # Store Flask app reference
+        self.mcp_filesystem_service = mcp_filesystem_service  # Store MCP filesystem service
         self.connected_clients: Dict[str, Dict[str, Any]] = {}
         self.agent_states: Dict[str, AgentState] = {}
         self.active_rooms: Dict[str, Dict[str, Any]] = {}
@@ -89,6 +90,11 @@ class SwarmWebSocketNamespace(Namespace):
 
         # Initialize default agents
         self._initialize_agents()
+        
+        if mcp_filesystem_service:
+            logger.info("🗂️ MCP Filesystem service connected to WebSocket namespace")
+        else:
+            logger.warning("⚠️ No MCP Filesystem service - agents will not have file access")
 
     def _initialize_agents(self):
         """Initialize default agent states"""
@@ -424,19 +430,71 @@ class SwarmWebSocketNamespace(Namespace):
 
             # Import here to avoid circular imports
             from ..services.openrouter_service import OpenRouterService
+            from ..services.agent_service import AgentService
+            from ..services.supermemory_service import SupermemoryService
             from flask import current_app
 
-            # Get OpenRouter service instance
+            # Get services
             openrouter_service = OpenRouterService()
+            supermemory_service = SupermemoryService() if hasattr(current_app, 'config_manager') else None
+            
+            # Create agent service with MCP filesystem
+            agent_service = AgentService(
+                openrouter_service=openrouter_service,
+                supermemory_service=supermemory_service,
+                mcp_filesystem_service=self.mcp_filesystem_service
+            )
 
             # Create agent context based on agent type
             agent_context = self._get_agent_context(agent_id)
 
-            # Prepare messages for the model
-            messages = [
-                {"role": "system", "content": agent_context},
-                {"role": "user", "content": message.content},
-            ]
+            # Prepare messages for the agent service
+            try:
+                # Use agent service for proper MCP filesystem integration
+                response = agent_service.chat_with_agent(
+                    agent_id=agent_id,
+                    message=message.content,
+                    model=model
+                )
+                
+                # Stream the response content
+                if response and response.content:
+                    content = response.content
+                    chunk_size = 50  # Characters per chunk
+                    chunk_count = 0
+                    
+                    for i in range(0, len(content), chunk_size):
+                        if not session.get("active", False):
+                            break
+                            
+                        chunk = content[i:i + chunk_size]
+                        chunk_count += 1
+                        
+                        # Emit chunk to client
+                        self.socketio.emit(
+                            "response_stream_chunk",
+                            {
+                                "session_id": session_id,
+                                "chunk": chunk,
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            },
+                            room=client_id,
+                            namespace="/swarm",
+                        )
+                        
+                        # Small delay to simulate streaming
+                        import time
+                        time.sleep(0.1)
+                    
+                    logger.info(f"✅ Agent service response streamed for session {session_id}. Total chunks: {chunk_count}")
+                    self._end_streaming_response(session_id)
+                else:
+                    logger.warning(f"⚠️ Empty response from agent service for session {session_id}")
+                    self._handle_streaming_error(session_id, "Empty response from agent service")
+                    
+            except Exception as agent_error:
+                logger.error(f"❌ Agent service error for session {session_id}: {agent_error}")
+                self._handle_streaming_error(session_id, f"Agent service error: {str(agent_error)}")
 
             # Start streaming in a separate thread with Flask app context
             import threading
@@ -860,8 +918,9 @@ class SwarmWebSocketNamespace(Namespace):
 class WebSocketService:
     """WebSocket service for real-time agent coordination with streaming support"""
 
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask, mcp_filesystem_service=None):
         self.app = app
+        self.mcp_filesystem_service = mcp_filesystem_service
         self.socketio = SocketIO(
             app,
             cors_allowed_origins="*",
@@ -872,12 +931,16 @@ class WebSocketService:
             ping_interval=25
         )
 
-        # Register namespace with app reference
-        self.namespace = SwarmWebSocketNamespace("/swarm", app)
+        # Register namespace with app reference and MCP filesystem
+        self.namespace = SwarmWebSocketNamespace("/swarm", app, mcp_filesystem_service)
         self.namespace.socketio = self.socketio  # Add socketio reference
         self.socketio.on_namespace(self.namespace)
 
-        logger.info("🔌 WebSocket service with streaming support initialized")
+        if mcp_filesystem_service:
+            logger.info("🔌 WebSocket service with MCP filesystem and streaming support initialized")
+        else:
+            logger.info("🔌 WebSocket service with streaming support initialized (no filesystem)")
+            logger.warning("⚠️ MCP filesystem service not provided - file operations disabled")
 
     def get_agent_states(self) -> Dict[str, AgentState]:
         """Get current agent states"""

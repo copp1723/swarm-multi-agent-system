@@ -104,13 +104,21 @@ def create_app(test_config=None):
 
     security_service = SecurityHardeningService(config.to_dict())
 
-    # Initialize WebSocket service
-    websocket_service = WebSocketService(app)
+    # Initialize MCP Filesystem service
+    from src.services.mcp_filesystem import MCPFilesystemService
+    mcp_filesystem_service = MCPFilesystemService(
+        base_path="/tmp/swarm_workspace",  # Secure workspace path
+        max_file_size=10 * 1024 * 1024  # 10MB limit
+    )
+
+    # Initialize WebSocket service with MCP filesystem
+    websocket_service = WebSocketService(app, mcp_filesystem_service=mcp_filesystem_service)
 
     # Store services in app context
     app.auth_service = auth_service
     app.security_service = security_service
     app.websocket_service = websocket_service
+    app.mcp_filesystem_service = mcp_filesystem_service
     app.config_manager = config
 
     # Initialize WebSocket routes with service instance

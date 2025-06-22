@@ -11,6 +11,7 @@ from src.config_flexible import get_config
 from src.exceptions import AgentNotFoundError, ValidationError
 from src.services.openrouter_service import ChatMessage, ChatResponse, OpenRouterService
 from src.services.supermemory_service import SupermemoryService
+from src.services.mcp_filesystem import MCPFilesystemService
 
 logger = logging.getLogger(__name__)
 
@@ -235,14 +236,23 @@ class AgentService:
     """Service for managing agent interactions with memory persistence"""
 
     def __init__(
-        self, openrouter_service: OpenRouterService, supermemory_service: SupermemoryService = None
+        self, 
+        openrouter_service: OpenRouterService, 
+        supermemory_service: SupermemoryService = None,
+        mcp_filesystem_service: MCPFilesystemService = None
     ):
         self.openrouter = openrouter_service
         self.supermemory = supermemory_service
+        self.mcp_filesystem = mcp_filesystem_service
         self.registry = AgentRegistry()
 
         if not self.supermemory:
             logger.warning("Supermemory service not provided - conversation persistence disabled")
+        
+        if not self.mcp_filesystem:
+            logger.warning("MCP Filesystem service not provided - file operations disabled")
+        else:
+            logger.info("MCP Filesystem service enabled - agents can access files")
 
     def get_agent_info(self, agent_id: str) -> Dict[str, Any]:
         """Get agent information"""
@@ -288,6 +298,33 @@ class AgentService:
 
         # Build message list
         messages = [ChatMessage(role="system", content=agent.system_prompt)]
+
+        # Add MCP filesystem capabilities if available
+        if self.mcp_filesystem:
+            filesystem_prompt = """
+
+FILESYSTEM ACCESS CAPABILITIES:
+You have access to a secure filesystem through MCP (Model Context Protocol). You can:
+
+- READ FILES: Access and read file contents from the workspace
+- WRITE FILES: Create and modify files in the workspace  
+- LIST DIRECTORIES: Browse folder contents and file structures
+- CREATE DIRECTORIES: Make new folders for organization
+- DELETE FILES/FOLDERS: Remove files and directories when needed
+- MOVE/RENAME: Reorganize files and folders
+- COPY FILES: Duplicate files and directories
+
+IMPORTANT FILESYSTEM GUIDELINES:
+- Always use relative paths from the workspace root
+- Supported file types: .txt, .md, .json, .yaml, .csv, .log, .py, .js, .html, .css, .xml, .sql, .sh, .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx
+- Maximum file size: 10MB
+- When users ask about files or folders, you CAN access them directly
+- Provide specific file operations and show actual file contents
+- Use proper error handling and inform users of any limitations
+
+To perform file operations, describe what you want to do and I will execute the filesystem commands for you.
+"""
+            messages.append(ChatMessage(role="system", content=filesystem_prompt))
 
         # Add context if available
         if context:
