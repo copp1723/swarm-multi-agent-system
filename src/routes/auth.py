@@ -5,20 +5,14 @@ Authentication Routes - Login, logout, registration, and user management endpoin
 import logging
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request # jsonify might be needed for direct returns if not all errors become exceptions
 
 from src.models.user import User, db
 from src.services.auth_service import AuthUser, require_auth, require_permission, require_role
-from src.utils.response_helpers import success_response, error_response
+from src.utils.response_helpers import create_success_response # error_response will be removed from imports
+from src.exceptions import ValidationError, SwarmException, AuthenticationError # Import necessary exceptions
 
-
-def validation_error_response(message: str, field: str = None):
-    """Helper function for validation errors"""
-    error_data = {"message": message}
-    if field:
-        error_data["field"] = field
-    return error_response(message, 400, error_data)
-
+# validation_error_response function will be removed
 
 logger = logging.getLogger(__name__)
 
@@ -39,30 +33,30 @@ def login():
     try:
         data = request.get_json()
         if not data:
-            return validation_error_response("JSON payload required")
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         username = data.get("username", "").strip()
         password = data.get("password", "")
 
         if not username or not password:
-            return validation_error_response("Username and password required")
+            raise ValidationError("Username and password required", error_code="MISSING_CREDENTIALS", details={"fields": ["username", "password"]})
 
         # Find user by username or email
         user = User.query.filter((User.username == username) | (User.email == username)).first()
 
         if not user:
             logger.warning(f"Login attempt with non-existent username: {username}")
-            return error_response("Invalid credentials", 401)
+            raise AuthenticationError("Invalid credentials", error_code="INVALID_CREDENTIALS")
 
         if not user.is_active:
             logger.warning(f"Login attempt for inactive user: {username}")
-            return error_response("Account is disabled", 401)
+            raise AuthenticationError("Account is disabled", error_code="ACCOUNT_DISABLED")
 
         # Verify password
         auth_service = current_app.auth_service
         if not auth_service.verify_password(password, user.password_hash):
             logger.warning(f"Failed login attempt for user: {username}")
-            return error_response("Invalid credentials", 401)
+            raise AuthenticationError("Invalid credentials", error_code="INVALID_CREDENTIALS")
 
         # Update last login
         user.last_login = datetime.now(timezone.utc)
@@ -84,7 +78,7 @@ def login():
 
         logger.info(f"Successful login for user: {username}")
 
-        return success_response(
+        return create_success_response(
             {
                 "token": token,
                 "user": {
@@ -96,10 +90,13 @@ def login():
                 },
             }
         )
-
+    except ValidationError: # Re-raise ValidationErrors to be caught by global handler or specific handler if added
+        raise
+    except AuthenticationError: # Re-raise AuthenticationErrors
+        raise
     except Exception as e:
         logger.error(f"Login error: {e}")
-        return error_response("Login failed", 500)
+        raise SwarmException("Login failed", error_code="LOGIN_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -118,7 +115,7 @@ def register():
     try:
         data = request.get_json()
         if not data:
-            return validation_error_response("JSON payload required")
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         username = data.get("username", "").strip()
         email = data.get("email", "").strip().lower()
@@ -127,19 +124,19 @@ def register():
 
         # Validation
         if not all([username, email, password, confirm_password]):
-            return validation_error_response("All fields are required")
+            raise ValidationError("All fields are required", error_code="MISSING_FIELDS", details={"required_fields": ["username", "email", "password", "confirm_password"]})
 
         if password != confirm_password:
-            return validation_error_response("Passwords do not match")
+            raise ValidationError("Passwords do not match", error_code="PASSWORD_MISMATCH", details={"field": "confirm_password"})
 
         if len(password) < 8:
-            return validation_error_response("Password must be at least 8 characters")
+            raise ValidationError("Password must be at least 8 characters", error_code="PASSWORD_TOO_SHORT", details={"field": "password", "min_length": 8})
 
         if len(username) < 3:
-            return validation_error_response("Username must be at least 3 characters")
+            raise ValidationError("Username must be at least 3 characters", error_code="USERNAME_TOO_SHORT", details={"field": "username", "min_length": 3})
 
-        if "@" not in email:
-            return validation_error_response("Valid email address required")
+        if "@" not in email: # Basic email validation
+            raise ValidationError("Valid email address required", error_code="INVALID_EMAIL_FORMAT", details={"field": "email"})
 
         # Check if user already exists
         existing_user = User.query.filter(
@@ -148,9 +145,9 @@ def register():
 
         if existing_user:
             if existing_user.username == username:
-                return validation_error_response("Username already exists")
+                raise ValidationError("Username already exists", error_code="USERNAME_EXISTS", details={"field": "username"})
             else:
-                return validation_error_response("Email already registered")
+                raise ValidationError("Email already registered", error_code="EMAIL_EXISTS", details={"field": "email"})
 
         # Hash password
         auth_service = current_app.auth_service
@@ -171,7 +168,7 @@ def register():
 
         logger.info(f"New user registered: {username}")
 
-        return success_response(
+        return create_success_response(
             {
                 "message": "User registered successfully",
                 "user": {
@@ -183,11 +180,12 @@ def register():
             },
             201,
         )
-
+    except ValidationError:
+        raise
     except Exception as e:
         logger.error(f"Registration error: {e}")
         db.session.rollback()
-        return error_response("Registration failed", 500)
+        raise SwarmException("Registration failed", error_code="REGISTRATION_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -203,11 +201,12 @@ def logout():
 
         logger.info(f"User logged out: {request.current_user.username}")
 
-        return success_response({"message": "Logged out successfully"})
-
+        return create_success_response({"message": "Logged out successfully"})
+    except SwarmException: # Includes AuthenticationError if token validation fails within @require_auth
+        raise
     except Exception as e:
         logger.error(f"Logout error: {e}")
-        return error_response("Logout failed", 500)
+        raise SwarmException("Logout failed", error_code="LOGOUT_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/refresh", methods=["POST"])
@@ -222,13 +221,16 @@ def refresh_token():
         new_token = auth_service.refresh_token(token)
 
         if new_token:
-            return success_response({"token": new_token})
+            return create_success_response({"token": new_token})
         else:
-            return error_response("Token refresh failed", 401)
-
+            # This case implies token was valid enough for @require_auth but refresh logic decided not to issue a new one
+            # or an issue occurred within refresh_token not raising an exception but returning None.
+            raise SwarmException("Token refresh failed", error_code="TOKEN_REFRESH_FAILED", status_code=401) # Or 400/500 depending on expected cause
+    except SwarmException:
+        raise
     except Exception as e:
         logger.error(f"Token refresh error: {e}")
-        return error_response("Token refresh failed", 500)
+        raise SwarmException("Token refresh failed", error_code="TOKEN_REFRESH_UNEXPECTED_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/me", methods=["GET"])
@@ -236,14 +238,17 @@ def refresh_token():
 def get_current_user():
     """Get current user information"""
     try:
+        # request.current_user comes from @require_auth decorator, which uses TokenPayload from auth_service
+        # It has user_id.
         user = User.query.get(request.current_user.user_id)
         if not user:
-            return error_response("User not found", 404)
+            # This case should ideally not happen if token belongs to a valid user that was not deleted.
+            raise SwarmException("User associated with token not found", error_code="USER_NOT_FOUND", status_code=404)
 
         auth_service = current_app.auth_service
         user_roles = user.roles.split(",") if user.roles else ["user"]
 
-        return success_response(
+        return create_success_response(
             {
                 "user": {
                     "id": user.id,
@@ -257,10 +262,11 @@ def get_current_user():
                 }
             }
         )
-
+    except SwarmException:
+        raise
     except Exception as e:
         logger.error(f"Get current user error: {e}")
-        return error_response("Failed to get user information", 500)
+        raise SwarmException("Failed to get user information", error_code="GET_USER_INFO_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/change-password", methods=["POST"])
@@ -270,30 +276,31 @@ def change_password():
     try:
         data = request.get_json()
         if not data:
-            return validation_error_response("JSON payload required")
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         current_password = data.get("current_password", "")
         new_password = data.get("new_password", "")
         confirm_password = data.get("confirm_password", "")
 
         if not all([current_password, new_password, confirm_password]):
-            return validation_error_response("All fields are required")
+            raise ValidationError("All fields are required", error_code="MISSING_FIELDS", details={"required_fields": ["current_password", "new_password", "confirm_password"]})
 
         if new_password != confirm_password:
-            return validation_error_response("New passwords do not match")
+            raise ValidationError("New passwords do not match", error_code="PASSWORD_MISMATCH", details={"field": "confirm_password"})
 
         if len(new_password) < 8:
-            return validation_error_response("Password must be at least 8 characters")
+            raise ValidationError("Password must be at least 8 characters", error_code="PASSWORD_TOO_SHORT", details={"field": "new_password", "min_length": 8})
 
         # Get current user
         user = User.query.get(request.current_user.user_id)
         if not user:
-            return error_response("User not found", 404)
+            raise SwarmException("User not found", error_code="USER_NOT_FOUND", status_code=404)
 
         # Verify current password
         auth_service = current_app.auth_service
         if not auth_service.verify_password(current_password, user.password_hash):
-            return error_response("Current password is incorrect", 400)
+            # Using ValidationError as it's a form of input validation failure from the user.
+            raise ValidationError("Current password is incorrect", error_code="CURRENT_PASSWORD_INVALID", details={"field": "current_password"})
 
         # Update password
         user.password_hash = auth_service.hash_password(new_password)
@@ -301,12 +308,15 @@ def change_password():
 
         logger.info(f"Password changed for user: {user.username}")
 
-        return success_response({"message": "Password changed successfully"})
-
+        return create_success_response({"message": "Password changed successfully"})
+    except ValidationError:
+        raise
+    except SwarmException:
+        raise
     except Exception as e:
         logger.error(f"Change password error: {e}")
         db.session.rollback()
-        return error_response("Password change failed", 500)
+        raise SwarmException("Password change failed", error_code="PASSWORD_CHANGE_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 # Admin endpoints
@@ -317,7 +327,7 @@ def list_users():
     try:
         users = User.query.all()
 
-        return success_response(
+        return create_success_response(
             {
                 "users": [
                     {
@@ -333,10 +343,11 @@ def list_users():
                 ]
             }
         )
-
+    except SwarmException: # For @require_permission
+        raise
     except Exception as e:
         logger.error(f"List users error: {e}")
-        return error_response("Failed to list users", 500)
+        raise SwarmException("Failed to list users", error_code="LIST_USERS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/users/<int:user_id>/roles", methods=["PUT"])
@@ -346,11 +357,11 @@ def update_user_roles(user_id):
     try:
         data = request.get_json()
         if not data:
-            return validation_error_response("JSON payload required")
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         roles = data.get("roles", [])
         if not isinstance(roles, list):
-            return validation_error_response("Roles must be a list")
+            raise ValidationError("Roles must be a list", error_code="INVALID_ROLES_FORMAT", details={"field": "roles"})
 
         # Validate roles
         auth_service = current_app.auth_service
@@ -358,29 +369,32 @@ def update_user_roles(user_id):
         invalid_roles = [role for role in roles if role not in valid_roles]
 
         if invalid_roles:
-            return validation_error_response(f"Invalid roles: {invalid_roles}")
+            raise ValidationError(f"Invalid roles: {invalid_roles}", error_code="INVALID_ROLES_PROVIDED", details={"invalid_roles": invalid_roles, "valid_roles": valid_roles})
 
         # Update user
         user = User.query.get(user_id)
         if not user:
-            return error_response("User not found", 404)
+            raise SwarmException("User not found to update roles", error_code="USER_NOT_FOUND_FOR_ROLE_UPDATE", status_code=404, details={"user_id": user_id})
 
         user.roles = ",".join(roles)
         db.session.commit()
 
         logger.info(f"Updated roles for user {user.username}: {roles}")
 
-        return success_response(
+        return create_success_response(
             {
                 "message": "User roles updated successfully",
                 "user": {"id": user.id, "username": user.username, "roles": roles},
             }
         )
-
+    except ValidationError:
+        raise
+    except SwarmException: # For @require_permission or user not found
+        raise
     except Exception as e:
         logger.error(f"Update user roles error: {e}")
         db.session.rollback()
-        return error_response("Failed to update user roles", 500)
+        raise SwarmException("Failed to update user roles", error_code="UPDATE_USER_ROLES_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @auth_bp.route("/users/<int:user_id>/status", methods=["PUT"])
@@ -390,15 +404,15 @@ def update_user_status(user_id):
     try:
         data = request.get_json()
         if not data:
-            return validation_error_response("JSON payload required")
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         is_active = data.get("is_active")
-        if is_active is None:
-            return validation_error_response("is_active field required")
+        if is_active is None: # Note: bool(None) is False. Explicit check for None is better.
+            raise ValidationError("is_active field required", error_code="MISSING_FIELD", details={"field": "is_active"})
 
         user = User.query.get(user_id)
         if not user:
-            return error_response("User not found", 404)
+            raise SwarmException("User not found to update status", error_code="USER_NOT_FOUND_FOR_STATUS_UPDATE", status_code=404, details={"user_id": user_id})
 
         user.is_active = bool(is_active)
         db.session.commit()
@@ -406,14 +420,17 @@ def update_user_status(user_id):
         status = "activated" if is_active else "deactivated"
         logger.info(f"User {user.username} {status}")
 
-        return success_response(
+        return create_success_response(
             {
                 "message": f"User {status} successfully",
                 "user": {"id": user.id, "username": user.username, "is_active": user.is_active},
             }
         )
-
+    except ValidationError:
+        raise
+    except SwarmException: # For @require_permission or user not found
+        raise
     except Exception as e:
         logger.error(f"Update user status error: {e}")
         db.session.rollback()
-        return error_response("Failed to update user status", 500)
+        raise SwarmException("Failed to update user status", error_code="UPDATE_USER_STATUS_FAILED", details={"original_error": str(e)}, status_code=500)

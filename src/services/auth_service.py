@@ -236,14 +236,18 @@ def require_auth(f):
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return jsonify({"error": "Missing or invalid authorization header"}), 401
+            raise SwarmException("Missing or invalid authorization header", "AUTH_HEADER_INVALID", status_code=401)
 
         token = auth_header.split(" ")[1]
         auth_service = current_app.auth_service
         payload = auth_service.validate_token(token)
 
         if not payload:
-            return jsonify({"error": "Invalid or expired token"}), 401
+            # validate_token already logs warnings for expired/invalid tokens.
+            # We can use a more specific error code if validate_token could return different error types.
+            # For now, a general "TOKEN_INVALID" or "AUTH_FAILED" is okay.
+            # SwarmException will also log.
+            raise SwarmException("Invalid or expired token", "TOKEN_INVALID", status_code=401)
 
         # Add user info to request context
         request.current_user = payload
@@ -263,7 +267,7 @@ def require_permission(permission: str):
             user_roles = request.current_user.roles
 
             if not auth_service.check_permission(user_roles, permission):
-                return jsonify({"error": f"Permission denied: {permission} required"}), 403
+                raise SwarmException(f"Permission denied: {permission} required", "PERMISSION_DENIED", status_code=403)
 
             return f(*args, **kwargs)
 
@@ -282,7 +286,7 @@ def require_role(role: str):
             user_roles = request.current_user.roles
 
             if role not in user_roles:
-                return jsonify({"error": f"Role required: {role}"}), 403
+                raise SwarmException(f"Role required: {role}", "ROLE_REQUIRED", status_code=403)
 
             return f(*args, **kwargs)
 
@@ -299,13 +303,13 @@ def require_api_key(f):
     def decorated_function(*args, **kwargs):
         api_key = request.headers.get("X-API-Key")
         if not api_key:
-            return jsonify({"error": "API key required"}), 401
+            raise SwarmException("API key required", "API_KEY_REQUIRED", status_code=401)
 
         # In production, validate against database
         # For now, check against environment variable
         valid_api_keys = current_app.config.get("VALID_API_KEYS", [])
         if api_key not in valid_api_keys:
-            return jsonify({"error": "Invalid API key"}), 401
+            raise SwarmException("Invalid API key", "API_KEY_INVALID", status_code=401)
 
         # Set API user context
         request.current_user = TokenPayload(

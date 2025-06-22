@@ -4,16 +4,17 @@ Security Routes - Security monitoring and management endpoints
 
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, request # jsonify and error_response removed from imports
 
 from src.services.auth_service import require_auth, require_permission
 from src.services.security_service import (
-    ValidationRule,
+    ValidationRule, # Keep this if used directly, or if @validate_json uses it
     rate_limit,
     security_headers,
     validate_json,
 )
-from src.utils.response_helpers import error_response, success_response
+from src.utils.response_helpers import success_response # error_response removed
+from src.exceptions import SwarmException, ValidationError # Import SwarmException
 
 security_bp = Blueprint("security", __name__)
 
@@ -40,7 +41,9 @@ def security_health():
         )
 
     except Exception as e:
-        return error_response(f"Security service health check failed: {str(e)}", 500)
+        # Log the original error for debugging
+        current_app.logger.error(f"Security service health check failed: {e}")
+        raise SwarmException("Security service health check failed.", error_code="SECURITY_HEALTH_CHECK_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/events", methods=["GET"])
@@ -91,7 +94,8 @@ def get_security_events():
         )
 
     except Exception as e:
-        return error_response(f"Failed to get security events: {str(e)}", 500)
+        current_app.logger.error(f"Failed to get security events: {e}")
+        raise SwarmException("Failed to get security events.", error_code="GET_SECURITY_EVENTS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/blocked-ips", methods=["GET"])
@@ -112,7 +116,8 @@ def get_blocked_ips():
         )
 
     except Exception as e:
-        return error_response(f"Failed to get blocked IPs: {str(e)}", 500)
+        current_app.logger.error(f"Failed to get blocked IPs: {e}")
+        raise SwarmException("Failed to get blocked IPs.", error_code="GET_BLOCKED_IPS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/blocked-ips", methods=["POST"])
@@ -146,9 +151,13 @@ def block_ip():
                 "reason": reason,
             }
         )
-
+    # @validate_json decorator should raise ValidationError if input is bad.
+    # That will be caught by the global SwarmException handler.
+    except ValidationError:
+        raise
     except Exception as e:
-        return error_response(f"Failed to block IP: {str(e)}", 500)
+        current_app.logger.error(f"Failed to block IP: {e}")
+        raise SwarmException("Failed to block IP.", error_code="BLOCK_IP_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/blocked-ips/<ip_address>", methods=["DELETE"])
@@ -161,28 +170,21 @@ def unblock_ip(ip_address):
     try:
         security_service = current_app.security_service
 
-        if ip_address in security_service.blocked_ips:
-            security_service.blocked_ips.remove(ip_address)
+        unblocked = security_service.unblock_ip(ip_address)
 
-            # Log the unblock event
-            security_service.log_security_event(
-                event_type="ip_unblocked",
-                user_id=request.current_user.user_id if hasattr(request, "current_user") else None,
-                ip_address=security_service.get_client_ip(request),
-                user_agent=request.headers.get("User-Agent", ""),
-                endpoint=request.endpoint,
-                details={"unblocked_ip": ip_address},
-                severity="medium",
-            )
-
+        if unblocked:
+            # The log_security_event is now handled by the service method.
             return success_response(
                 {"message": f"IP address {ip_address} has been unblocked", "ip_address": ip_address}
             )
         else:
-            return error_response(f"IP address {ip_address} is not blocked", 404)
-
+            # Specific error for resource not found (IP was not in the blocked list)
+            raise SwarmException(f"IP address {ip_address} was not found in the blocked list or could not be unblocked.", error_code="IP_NOT_UNBLOCKED", status_code=404)
+    except SwarmException: # Re-raise SwarmExceptions (like the one for IP_NOT_UNBLOCKED)
+        raise
     except Exception as e:
-        return error_response(f"Failed to unblock IP: {str(e)}", 500)
+        current_app.logger.error(f"Failed to unblock IP: {e}")
+        raise SwarmException("Failed to unblock IP.", error_code="UNBLOCK_IP_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/rate-limits", methods=["GET"])
@@ -207,7 +209,8 @@ def get_rate_limits():
         return success_response({"rate_limit_rules": rules_data})
 
     except Exception as e:
-        return error_response(f"Failed to get rate limits: {str(e)}", 500)
+        current_app.logger.error(f"Failed to get rate limits: {e}")
+        raise SwarmException("Failed to get rate limits.", error_code="GET_RATE_LIMITS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/stats", methods=["GET"])
@@ -252,7 +255,8 @@ def get_security_stats():
         )
 
     except Exception as e:
-        return error_response(f"Failed to get security stats: {str(e)}", 500)
+        current_app.logger.error(f"Failed to get security stats: {e}")
+        raise SwarmException("Failed to get security stats.", error_code="GET_SECURITY_STATS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @security_bp.route("/validate", methods=["POST"])
@@ -262,12 +266,14 @@ def get_security_stats():
 def validate_input_endpoint():
     """Test input validation (for development/testing)"""
     try:
+        # Basic JSON checks, though @validate_json decorator in security_service might handle this.
+        # However, this route doesn't use @validate_json.
         if not request.is_json:
-            return error_response("JSON payload required", 400)
+            raise ValidationError("JSON payload required", error_code="JSON_PAYLOAD_REQUIRED")
 
         data = request.get_json()
-        if not data:
-            return error_response("Invalid JSON payload", 400)
+        if data is None: # Check if get_json() returned None (e.g. for empty or malformed body)
+            raise ValidationError("Invalid JSON payload or empty body", error_code="JSON_INVALID")
 
         # Define test validation rules
         test_rules = [
@@ -294,6 +300,8 @@ def validate_input_endpoint():
                 "sanitized_data": sanitized_data,
             }
         )
-
+    except ValidationError: # Re-raise validation errors
+        raise
     except Exception as e:
-        return error_response(f"Validation test failed: {str(e)}", 500)
+        current_app.logger.error(f"Validation test failed: {e}")
+        raise SwarmException("Validation test failed.", error_code="VALIDATION_TEST_FAILED", details={"original_error": str(e)}, status_code=500)

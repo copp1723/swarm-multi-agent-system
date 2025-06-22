@@ -7,9 +7,9 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from src.config_flexible import get_config
-from src.exceptions import ServiceError, SwarmException, ValidationError
+from src.exceptions import ServiceError, SwarmException, ValidationError # Keep these
 from src.services.supermemory_service import MemoryQuery, SupermemoryService
-from src.utils.response_helpers import create_error_response, create_success_response
+from src.utils.response_helpers import create_success_response # create_error_response removed
 
 logger = logging.getLogger(__name__)
 
@@ -34,27 +34,23 @@ except Exception as e:
 def memory_health():
     """Check memory service health"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         health_status = supermemory_service.health_check()
         return jsonify(create_success_response(health_status, "Memory service health check"))
+    except ServiceError: # If health_check itself raises a ServiceError
+        raise
     except Exception as e:
         logger.error(f"Memory health check failed: {e}")
-        return create_error_response(
-            ServiceError("Memory health check failed", "HEALTH_CHECK_FAILED"), 500
-        )
+        raise ServiceError("Memory health check failed", error_code="HEALTH_CHECK_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @memory_bp.route("/conversations/<agent_id>", methods=["GET"])
 def get_conversation_history(agent_id: str):
     """Get conversation history for a specific agent"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         # Get optional limit parameter
@@ -90,23 +86,20 @@ def get_conversation_history(agent_id: str):
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except ServiceError as e:
-        logger.error(f"Error retrieving conversation history for {agent_id}: {e}")
-        return create_error_response(e, 500)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError from supermemory_service.get_conversation_history
+        raise
     except Exception as e:
         logger.error(f"Unexpected error retrieving conversation history for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error retrieving history for {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @memory_bp.route("/conversations/<agent_id>", methods=["POST"])
 def store_conversation(agent_id: str):
     """Store a new conversation entry"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         # Validate request data
@@ -154,23 +147,20 @@ def store_conversation(agent_id: str):
             201,
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except ServiceError as e:
-        logger.error(f"Error storing conversation for {agent_id}: {e}")
-        return create_error_response(e, 500)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError from supermemory_service.store_conversation
+        raise
     except Exception as e:
         logger.error(f"Unexpected error storing conversation for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error storing conversation for {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @memory_bp.route("/search", methods=["POST"])
 def search_memory():
     """Search memory for relevant context"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         # Validate request data
@@ -223,23 +213,20 @@ def search_memory():
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except ServiceError as e:
-        logger.error(f"Error searching memory: {e}")
-        return create_error_response(e, 500)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError from supermemory_service.search_memory
+        raise
     except Exception as e:
         logger.error(f"Unexpected error searching memory: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException("Internal server error while searching memory", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @memory_bp.route("/context/<agent_id>", methods=["POST"])
 def get_agent_context(agent_id: str):
     """Get relevant context for an agent based on current message"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         # Validate request data
@@ -279,23 +266,20 @@ def get_agent_context(agent_id: str):
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except ServiceError as e:
-        logger.error(f"Error getting agent context for {agent_id}: {e}")
-        return create_error_response(e, 500)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError from supermemory_service.get_agent_context
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting agent context for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error getting agent context for {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @memory_bp.route("/conversations/<agent_id>", methods=["DELETE"])
 def clear_agent_memory(agent_id: str):
     """Clear all memory for a specific agent"""
     if not supermemory_service:
-        return create_error_response(
-            ServiceError("Supermemory service not initialized", "SERVICE_NOT_INITIALIZED"), 503
-        )
+        raise ServiceError("Supermemory service not initialized", error_code="SERVICE_NOT_INITIALIZED", status_code=503)
 
     try:
         # Clear agent memory
@@ -315,9 +299,8 @@ def clear_agent_memory(agent_id: str):
                 )
             )
 
-    except ServiceError as e:
-        logger.error(f"Error clearing memory for {agent_id}: {e}")
-        return create_error_response(e, 500)
+    except ServiceError: # ServiceError from supermemory_service.clear_agent_memory
+        raise
     except Exception as e:
         logger.error(f"Unexpected error clearing memory for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error clearing memory for {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)

@@ -3,9 +3,10 @@ WebSocket Routes - Real-time communication endpoints
 """
 
 import logging
-from flask import Blueprint, jsonify, request
-from src.services.websocket_service import WebSocketService, AgentStatus
-from src.utils.response_helpers import success_response, error_response
+from flask import Blueprint, request # jsonify removed
+from src.services.websocket_service import WebSocketService, AgentStatus, MessageType # Added MessageType
+from src.utils.response_helpers import success_response # error_response removed
+from src.exceptions import SwarmException, ValidationError # Import exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def websocket_health():
     """WebSocket service health check"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         connected_clients = websocket_service.get_connected_clients_count()
         active_rooms = len(websocket_service.get_active_rooms())
@@ -50,7 +51,7 @@ def websocket_health():
 
     except Exception as e:
         logger.error(f"WebSocket health check failed: {e}")
-        return error_response("WebSocket health check failed", 500, {"error": str(e)})
+        raise SwarmException("WebSocket health check failed", error_code="WEBSOCKET_HEALTH_CHECK_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/agents/status", methods=["GET"])
@@ -58,7 +59,7 @@ def get_agent_statuses():
     """Get current status of all agents"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         agent_states = websocket_service.get_agent_states()
 
@@ -78,7 +79,7 @@ def get_agent_statuses():
 
     except Exception as e:
         logger.error(f"Failed to get agent statuses: {e}")
-        return error_response("Failed to get agent statuses", 500, {"error": str(e)})
+        raise SwarmException("Failed to get agent statuses", error_code="GET_AGENT_STATUSES_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/agents/<agent_id>/status", methods=["PUT"])
@@ -86,29 +87,29 @@ def update_agent_status(agent_id: str):
     """Update agent status (for internal use by agent services)"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         data = request.get_json()
         if not data:
-            return error_response("Request body required", 400)
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         # Validate status
         status_str = data.get("status")
         if not status_str:
-            return error_response("Status is required", 400)
+            raise ValidationError("Status is required", error_code="MISSING_STATUS", details={"field":"status"})
 
         try:
             status = AgentStatus(status_str)
         except ValueError:
             valid_statuses = [s.value for s in AgentStatus]
-            return error_response(f"Invalid status. Valid options: {valid_statuses}", 400)
+            raise ValidationError(f"Invalid status. Valid options: {valid_statuses}", error_code="INVALID_AGENT_STATUS", details={"valid_options": valid_statuses})
 
         current_task = data.get("current_task")
         progress = data.get("progress", 0.0)
 
         # Validate progress
-        if not isinstance(progress, (int, float)) or progress < 0 or progress > 1:
-            return error_response("Progress must be a number between 0 and 1", 400)
+        if not isinstance(progress, (int, float)) or not (0 <= progress <= 1):
+            raise ValidationError("Progress must be a number between 0 and 1", error_code="INVALID_PROGRESS", details={"field": "progress"})
 
         # Update agent status
         websocket_service.update_agent_status(agent_id, status, current_task, progress)
@@ -123,9 +124,11 @@ def update_agent_status(agent_id: str):
             },
         )
 
+    except ValidationError:
+        raise
     except Exception as e:
         logger.error(f"Failed to update agent status: {e}")
-        return error_response("Failed to update agent status", 500, {"error": str(e)})
+        raise SwarmException("Failed to update agent status", error_code="UPDATE_AGENT_STATUS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/agents/<agent_id>/message", methods=["POST"])
@@ -133,23 +136,23 @@ def send_agent_message(agent_id: str):
     """Send message from agent to connected clients"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         data = request.get_json()
         if not data:
-            return error_response("Request body required", 400)
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         content = data.get("content")
         if not content:
-            return error_response("Message content is required", 400)
+            raise ValidationError("Message content is required", error_code="MISSING_MESSAGE_CONTENT", details={"field": "content"})
 
         # Validate message type
         message_type_str = data.get("message_type", "agent_message")
         try:
-            message_type = MessageType(message_type_str)
+            message_type = MessageType(message_type_str) # Assumes MessageType is imported and is an Enum
         except ValueError:
-            valid_types = [t.value for t in MessageType]
-            return error_response(f"Invalid message type. Valid options: {valid_types}", 400)
+            # valid_types = [t.value for t in MessageType] # This would fail if MessageType is not an Enum
+            raise ValidationError(f"Invalid message type: {message_type_str}", error_code="INVALID_MESSAGE_TYPE")
 
         metadata = data.get("metadata", {})
 
@@ -166,9 +169,11 @@ def send_agent_message(agent_id: str):
             },
         )
 
+    except ValidationError:
+        raise
     except Exception as e:
         logger.error(f"Failed to send agent message: {e}")
-        return error_response("Failed to send agent message", 500, {"error": str(e)})
+        raise SwarmException("Failed to send agent message", error_code="SEND_AGENT_MESSAGE_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/rooms", methods=["GET"])
@@ -176,7 +181,7 @@ def get_active_rooms():
     """Get list of active collaboration rooms"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         active_rooms = websocket_service.get_active_rooms()
 
@@ -197,7 +202,7 @@ def get_active_rooms():
 
     except Exception as e:
         logger.error(f"Failed to get active rooms: {e}")
-        return error_response("Failed to get active rooms", 500, {"error": str(e)})
+        raise SwarmException("Failed to get active rooms", error_code="GET_ACTIVE_ROOMS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/stats", methods=["GET"])
@@ -205,7 +210,7 @@ def get_websocket_stats():
     """Get WebSocket service statistics"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         connected_clients = websocket_service.get_connected_clients_count()
         active_rooms = websocket_service.get_active_rooms()
@@ -234,7 +239,7 @@ def get_websocket_stats():
 
     except Exception as e:
         logger.error(f"Failed to get WebSocket stats: {e}")
-        return error_response("Failed to get WebSocket stats", 500, {"error": str(e)})
+        raise SwarmException("Failed to get WebSocket stats", error_code="GET_WEBSOCKET_STATS_FAILED", details={"original_error": str(e)}, status_code=500)
 
 
 @websocket_bp.route("/test", methods=["POST"])
@@ -242,15 +247,21 @@ def test_websocket_message():
     """Test WebSocket message sending (for development/testing)"""
     try:
         if not websocket_service:
-            return error_response("WebSocket service not initialized", 503)
+            raise SwarmException("WebSocket service not initialized", error_code="WEBSOCKET_SERVICE_UNAVAILABLE", status_code=503)
 
         data = request.get_json()
         if not data:
-            return error_response("Request body required", 400)
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         agent_id = data.get("agent_id", "test")
         content = data.get("content", "Test message from WebSocket API")
-        message_type = MessageType(data.get("message_type", "system_message"))
+
+        message_type_str = data.get("message_type", "system_message")
+        try:
+            message_type = MessageType(message_type_str) # Assumes MessageType is imported and is an Enum
+        except ValueError:
+            # valid_types = [t.value for t in MessageType] # This would fail if MessageType is not an Enum
+            raise ValidationError(f"Invalid message type for test: {message_type_str}", error_code="INVALID_MESSAGE_TYPE_TEST")
 
         websocket_service.send_agent_message(agent_id, content, message_type)
 
@@ -259,6 +270,8 @@ def test_websocket_message():
             {"agent_id": agent_id, "content": content, "message_type": message_type.value},
         )
 
+    except ValidationError:
+        raise
     except Exception as e:
         logger.error(f"Failed to send test message: {e}")
-        return error_response("Failed to send test message", 500, {"error": str(e)})
+        raise SwarmException("Failed to send test message", error_code="WEBSOCKET_TEST_SEND_FAILED", details={"original_error": str(e)}, status_code=500)

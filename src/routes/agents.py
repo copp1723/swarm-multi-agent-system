@@ -12,6 +12,7 @@ from src.exceptions import AgentNotFoundError, SwarmException, ValidationError
 from src.services.agent_service import AgentService
 from src.services.openrouter_service import OpenRouterService
 from src.services.supermemory_service import SupermemoryService
+from src.utils.response_helpers import create_success_response, create_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -35,31 +36,6 @@ agent_service = AgentService(openrouter_service, supermemory_service)
 agents_bp = Blueprint("agents", __name__)
 
 
-def create_error_response(error: SwarmException, status_code: int = 400) -> tuple:
-    """Create standardized error response"""
-    return (
-        jsonify(
-            {
-                "success": False,
-                "error": {
-                    "code": error.error_code,
-                    "message": error.message,
-                    "details": error.details,
-                },
-            }
-        ),
-        status_code,
-    )
-
-
-def create_success_response(data: Any, message: str = None) -> Dict[str, Any]:
-    """Create standardized success response"""
-    response = {"success": True, "data": data}
-    if message:
-        response["message"] = message
-    return response
-
-
 @agents_bp.route("/", methods=["GET"])
 def list_agents():
     """Get list of all available agents"""
@@ -70,10 +46,10 @@ def list_agents():
         )
     except SwarmException as e:
         logger.error(f"Error listing agents: {e}")
-        return create_error_response(e, 500)
+        raise # Re-raise SwarmException for global handler
     except Exception as e:
         logger.error(f"Unexpected error listing agents: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException("Internal server error while listing agents", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/<agent_id>", methods=["GET"])
@@ -84,14 +60,14 @@ def get_agent(agent_id: str):
         return jsonify(
             create_success_response({"agent": agent_info}, f"Retrieved agent {agent_id}")
         )
-    except AgentNotFoundError as e:
-        return create_error_response(e, 404)
+    except AgentNotFoundError: # AgentNotFoundError is a SwarmException
+        raise
     except SwarmException as e:
         logger.error(f"Error getting agent {agent_id}: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting agent {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error while getting agent {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/<agent_id>/chat", methods=["POST"])
@@ -147,16 +123,16 @@ def chat_with_agent(agent_id: str):
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except AgentNotFoundError as e:
-        return create_error_response(e, 404)
+    except ValidationError:
+        raise
+    except AgentNotFoundError:
+        raise
     except SwarmException as e:
         logger.error(f"Error chatting with agent {agent_id}: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error chatting with agent {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error while chatting with agent {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/models", methods=["GET"])
@@ -187,10 +163,10 @@ def get_available_models():
 
     except SwarmException as e:
         logger.error(f"Error getting models: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting models: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException("Internal server error while getting models", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/suggest", methods=["POST"])
@@ -226,14 +202,14 @@ def suggest_agents():
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
+    except ValidationError:
+        raise
     except SwarmException as e:
         logger.error(f"Error suggesting agents: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error suggesting agents: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException("Internal server error while suggesting agents", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/collaborate", methods=["POST"])
@@ -321,14 +297,14 @@ def collaborate_with_agents():
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except SwarmException as e:
+    except ValidationError:
+        raise
+    except SwarmException as e: # Covers AgentNotFoundError if get_agent_info fails within loop
         logger.error(f"Error in agent collaboration: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in agent collaboration: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException("Internal server error during agent collaboration", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/<agent_id>/history", methods=["GET"])
@@ -350,16 +326,16 @@ def get_agent_conversation_history(agent_id: str):
             )
         )
 
-    except ValidationError as e:
-        return create_error_response(e, 400)
-    except AgentNotFoundError as e:
-        return create_error_response(e, 404)
+    except ValidationError:
+        raise
+    except AgentNotFoundError:
+        raise
     except SwarmException as e:
         logger.error(f"Error getting conversation history for {agent_id}: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting conversation history for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error while getting history for agent {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/<agent_id>/clear-memory", methods=["DELETE"])
@@ -380,14 +356,14 @@ def clear_agent_memory_route(agent_id: str):
             )
         )
 
-    except AgentNotFoundError as e:
-        return create_error_response(e, 404)
+    except AgentNotFoundError:
+        raise
     except SwarmException as e:
         logger.error(f"Error clearing memory for {agent_id}: {e}")
-        return create_error_response(e, 500)
+        raise
     except Exception as e:
         logger.error(f"Unexpected error clearing memory for {agent_id}: {e}")
-        return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+        raise SwarmException(f"Internal server error while clearing memory for agent {agent_id}", "INTERNAL_ERROR", details={"original_error": str(e)}, status_code=500)
 
 
 @agents_bp.route("/test-openrouter", methods=["GET", "POST"])
@@ -457,13 +433,11 @@ def test_openrouter():
                 )
             )
             
-    except Exception as e:
+    except Exception as e: # This one is a bit different as it constructs a SwarmException. This is fine.
         logger.error(f"OpenRouter test failed: {e}")
-        return create_error_response(
-            SwarmException(
-                f"OpenRouter test failed: {str(e)}",
-                "OPENROUTER_TEST_ERROR",
-                {"error": str(e)}
-            ),
-            500
+        raise SwarmException(
+            f"OpenRouter test failed: {str(e)}",
+            error_code="OPENROUTER_TEST_ERROR",
+            details={"original_error": str(e)}, # Changed "error" to "original_error" for consistency
+            status_code=500
         )

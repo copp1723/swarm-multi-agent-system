@@ -241,8 +241,11 @@ def create_app(test_config=None):
                     details={},
                     severity="high",
                 )
-                return jsonify({"error": "Access denied"}), 403
+                # Use SwarmException for standardized error handling
+                raise SwarmException("Access denied", "ACCESS_DENIED", status_code=403)
 
+        except SwarmException: # Re-raise SwarmExceptions to be caught by global handler
+            raise
         except Exception as e:
             logger.error(f"Security middleware error: {e}")
             # Don't block requests on security middleware errors
@@ -367,62 +370,6 @@ def create_app(test_config=None):
     app.socketio = socketio
 
     return app, socketio
-
-
-# class SwarmNamespace(Namespace):
-#     """Socket.IO namespace for Swarm multi-agent system"""
-    
-#     def on_connect(self):
-#         """Handle client connection"""
-#         logger.info(f"Client connected: {request.sid}")
-#         emit('status', {'message': 'Connected to Swarm', 'connected': True})
-    
-#     def on_disconnect(self):
-#         """Handle client disconnection"""
-#         logger.info(f"Client disconnected: {request.sid}")
-    
-#     def on_user_message(self, data):
-#         """Handle user messages to agents"""
-#         try:
-#             logger.info(f"Received message: {data}")
-            
-#             # Get agent service from app context
-#             from flask import current_app
-#             agent_service = current_app.websocket_service.agent_service # This assumes websocket_service has agent_service
-            
-#             # Extract message data
-#             message = data.get('message', '')
-#             agent_id = data.get('agent_id', 'general_agent')
-#             model = data.get('model', 'openai/gpt-4o')
-            
-#             if not message:
-#                 emit('error', {'message': 'Message is required'})
-#                 return
-            
-#             # Send typing indicator
-#             emit('agent_typing', {'agent_id': agent_id, 'typing': True})
-            
-#             # Get agent response
-#             # Ensure agent_service is correctly initialized and has chat_with_agent
-#             response = agent_service.chat_with_agent(agent_id, message, model)
-            
-#             # Send response back to client
-#             emit('agent_response', {
-#                 'agent_id': agent_id,
-#                 'message': response.content,
-#                 'model': response.model,
-#                 'timestamp': datetime.now(timezone.utc).isoformat()
-#             })
-            
-#             # Stop typing indicator
-#             emit('agent_typing', {'agent_id': agent_id, 'typing': False})
-            
-#         except Exception as e:
-#             logger.error(f"Error handling user message: {e}")
-#             emit('error', {'message': f'Error processing message: {str(e)}'})
-#             # Ensure agent_id is defined for this emit
-#             if 'agent_id' not in locals(): agent_id = 'unknown_agent'
-#             emit('agent_typing', {'agent_id': agent_id, 'typing': False})
 
 
 # Create the application instance

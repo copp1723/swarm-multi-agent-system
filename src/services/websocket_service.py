@@ -6,6 +6,7 @@ import json
 import logging
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -51,9 +52,11 @@ class WebSocketService(BaseService):
         self.app = app
         self.mcp_filesystem_service = mcp_filesystem_service
         self.connected_clients = {}
-        self.agent_states = {}
-        self.active_rooms = {}
+        self.agent_states = {} # Managed by SwarmWebSocketNamespace instance
+        self.active_rooms = {} # Managed by SwarmWebSocketNamespace instance
         self.streaming_sessions = {}
+        self.streaming_sessions_lock = threading.Lock() # Lock for streaming_sessions
+        self.thread_pool = ThreadPoolExecutor(max_workers=10) # Initialize ThreadPoolExecutor
         
         # Verify MCP filesystem service
         if self.mcp_filesystem_service:
@@ -68,11 +71,15 @@ class WebSocketService(BaseService):
     def _start_streaming_response(self, session_id: str, message: WebSocketMessage, model: str):
         """Start streaming response from agent with proper Flask context"""
         try:
-            session = self.streaming_sessions.get(session_id)
-            if not session or not session["active"]:
+            with self.streaming_sessions_lock:
+                session = self.streaming_sessions.get(session_id)
+
+            if not session or not session["active"]: # Reading 'active' should also be under lock if modified elsewhere
+                # Let's assume 'active' is only modified by this thread or under lock.
+                # For now, the get() is locked. If session is found, its 'active' status is from that locked read.
                 return
 
-            client_id = session["client_id"]
+            client_id = session["client_id"] # Read from session copy, no lock needed here for client_id
             agent_id = session["agent_id"]
 
             # Emit stream start
@@ -201,8 +208,19 @@ class WebSocketService(BaseService):
             )
         finally:
             # Clean up session
-            if session_id in self.streaming_sessions:
-                self.streaming_sessions[session_id]["active"] = False
+            with self.streaming_sessions_lock:
+                if session_id in self.streaming_sessions:
+                    # Ensure the session object itself is what we expect,
+                    # and that modifying 'active' is safe.
+                    # If other threads can delete session_id from streaming_sessions,
+                    # this check needs to be careful. The lock helps.
+                    if self.streaming_sessions.get(session_id): # Check again as it might have been removed
+                        self.streaming_sessions[session_id]["active"] = False
+                    # Potentially remove the session if no longer needed to prevent memory leak
+                    # For example, if !active means it can be deleted:
+                    if self.streaming_sessions.get(session_id) and not self.streaming_sessions[session_id]["active"]:
+                        del self.streaming_sessions[session_id]
+                        logger.info(f"Cleaned up streaming session: {session_id}")
 
     def get_mcp_status(self) -> Dict[str, Any]:
         """Get MCP filesystem service status"""
@@ -236,6 +254,7 @@ class SwarmWebSocketNamespace(Namespace):
         super().__init__("/swarm")
         self.websocket_service = websocket_service
         self.connected_clients = {}
+        self.clients_lock = threading.Lock() # Lock for connected_clients
         self.agent_states = {
             "email_agent": {"status": AgentStatus.IDLE, "connected_users": []},
             "calendar_agent": {"status": AgentStatus.IDLE, "connected_users": []},
@@ -243,17 +262,19 @@ class SwarmWebSocketNamespace(Namespace):
             "debug_agent": {"status": AgentStatus.IDLE, "connected_users": []},
             "general_agent": {"status": AgentStatus.IDLE, "connected_users": []},
         }
+        self.agent_states_lock = threading.Lock() # Lock for agent_states
 
     def on_connect(self):
         """Handle client connection with MCP status"""
         client_id = request.sid
         user_id = request.args.get("user_id", f"user_{client_id[:8]}")
         
-        self.connected_clients[client_id] = {
-            "user_id": user_id,
-            "connected_at": datetime.now(timezone.utc).isoformat(),
-            "agent_subscriptions": [],
-        }
+        with self.clients_lock:
+            self.connected_clients[client_id] = {
+                "user_id": user_id,
+                "connected_at": datetime.now(timezone.utc).isoformat(),
+                "agent_subscriptions": [],
+            }
         
         # Get MCP status
         mcp_status = self.websocket_service.get_mcp_status()
@@ -270,23 +291,27 @@ class SwarmWebSocketNamespace(Namespace):
     def on_disconnect(self):
         """Handle client disconnection"""
         client_id = request.sid
-        if client_id in self.connected_clients:
-            user_id = self.connected_clients[client_id].get("user_id", "unknown")
-            del self.connected_clients[client_id]
-            logger.info(f"Client disconnected: {user_id} ({client_id})")
-        else:
-            logger.info(f"Client disconnected: {client_id} (already removed or not found)")
+        with self.clients_lock:
+            if client_id in self.connected_clients:
+                user_id = self.connected_clients[client_id].get("user_id", "unknown")
+                del self.connected_clients[client_id]
+                logger.info(f"Client disconnected: {user_id} ({client_id})")
+            else:
+                logger.info(f"Client disconnected: {client_id} (already removed or not found)")
 
     def on_user_message(self, data): # Renamed from on_send_message
         """Enhanced message handling with MCP filesystem support, receives messages from users."""
         try:
             client_id = request.sid
             
-            if client_id not in self.connected_clients:
+            with self.clients_lock:
+                client_data = self.connected_clients.get(client_id)
+
+            if not client_data:
                 emit("error", {"message": "Client not found"})
                 return
 
-            user_id = self.connected_clients[client_id]["user_id"]
+            user_id = client_data["user_id"]
             
             # Create message
             message = WebSocketMessage(
@@ -324,32 +349,34 @@ class SwarmWebSocketNamespace(Namespace):
         """Send message to agent with streaming response and MCP support"""
         try:
             agent_id = message.recipient_id
-            if agent_id not in self.agent_states:
-                emit("error", {"message": f"Agent {agent_id} not found"}, room=client_id)
-                return
+            with self.agent_states_lock:
+                if agent_id not in self.agent_states:
+                    emit("error", {"message": f"Agent {agent_id} not found"}, room=client_id)
+                    return
 
-            # Update agent status
+            # Update agent status (update_agent_status handles its own locking)
             self.update_agent_status(agent_id, AgentStatus.THINKING, "Processing user message")
 
             # Create streaming session
             session_id = str(uuid.uuid4())
-            self.websocket_service.streaming_sessions[session_id] = {
-                "client_id": client_id,
-                "agent_id": agent_id,
-                "message_id": message.message_id,
+            with self.websocket_service.streaming_sessions_lock:
+                self.websocket_service.streaming_sessions[session_id] = {
+                    "client_id": client_id,
+                    "agent_id": agent_id,
+                    "message_id": message.message_id,
                 "model": model,
                 "original_message": message.content,  # Store original message for fallback
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "active": True,
             }
 
-            # Start streaming response in background thread with Flask context
-            thread = threading.Thread(
-                target=self.websocket_service._start_streaming_response,
-                args=(session_id, message, model)
+            # Start streaming response using ThreadPoolExecutor
+            self.websocket_service.thread_pool.submit(
+                self.websocket_service._start_streaming_response,
+                session_id,
+                message,
+                model
             )
-            thread.daemon = True
-            thread.start()
 
         except Exception as e:
             logger.error(f"❌ Send to agent with streaming error: {e}")
@@ -357,11 +384,19 @@ class SwarmWebSocketNamespace(Namespace):
 
     def update_agent_status(self, agent_id: str, status: AgentStatus, message: str = ""):
         """Update agent status and broadcast to connected clients"""
-        if agent_id in self.agent_states:
-            self.agent_states[agent_id]["status"] = status
-            
-            # Include MCP status for agents
-            mcp_status = self.websocket_service.get_mcp_status()
+        with self.agent_states_lock:
+            if agent_id in self.agent_states:
+                self.agent_states[agent_id]["status"] = status
+            else:
+                # Optionally handle if agent_id is not pre-defined, e.g., log a warning or create a new state
+                logger.warning(f"Attempted to update status for unknown agent_id: {agent_id}")
+                # Or dynamically add it:
+                # self.agent_states[agent_id] = {"status": status, "connected_users": []}
+                # For now, let's assume agent_id should exist.
+                return # Or emit an error if this is unexpected
+
+        # MCP status can be fetched outside the lock if it doesn't depend on agent_states
+        mcp_status = self.websocket_service.get_mcp_status()
             
             emit("agent_status_update", {
                 "agent_id": agent_id,
