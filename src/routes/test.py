@@ -18,30 +18,31 @@ def test_openrouter():
         data = request.get_json()
         message = data.get("message", "Hello, can you respond with a simple greeting?")
         
+        logger.info(f"Testing OpenRouter API with message: {message}")
+        
         # Create OpenRouter service
         openrouter_service = OpenRouterService()
         
-        # Test simple chat completion
+        # Test simple non-streaming chat completion first
         messages = [
             {"role": "user", "content": message}
         ]
         
-        # Try streaming
-        response_chunks = []
-        for chunk in openrouter_service.stream_chat_completion(messages, "openai/gpt-4o"):
-            if chunk and "choices" in chunk and len(chunk["choices"]) > 0:
-                delta = chunk["choices"][0].get("delta", {})
-                content = delta.get("content", "")
-                if content:
-                    response_chunks.append(content)
+        logger.info("Testing non-streaming chat completion")
+        response = openrouter_service.chat_completion_with_messages(
+            messages, 
+            model="openai/gpt-4o", 
+            stream=False
+        )
         
-        full_response = "".join(response_chunks)
+        logger.info(f"Non-streaming response: {response}")
         
         return jsonify({
             "success": True,
             "message": "OpenRouter API test successful",
-            "response": full_response,
-            "chunks_received": len(response_chunks)
+            "response": response.content,
+            "model": response.model,
+            "usage": response.usage
         })
         
     except Exception as e:
@@ -49,6 +50,7 @@ def test_openrouter():
         return jsonify({
             "success": False,
             "error": str(e),
+            "error_type": type(e).__name__,
             "message": "OpenRouter API test failed"
         }), 500
 

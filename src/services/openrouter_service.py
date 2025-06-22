@@ -227,14 +227,33 @@ class OpenRouterService(BaseService):
         }
 
         try:
-            # Use requests directly for streaming
+            # Log the request for debugging
+            logger.info(f"OpenRouter request URL: {self.base_url}/chat/completions")
+            logger.info(f"OpenRouter request headers: {self.headers}")
+            logger.info(f"OpenRouter request payload: {payload}")
+
+            # Use requests directly for streaming with longer timeout
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=30,
+                timeout=60,  # Increased timeout for Render
             )
+
+            # Log response status for debugging
+            logger.info(f"OpenRouter response status: {response.status_code}")
+            logger.info(f"OpenRouter response headers: {dict(response.headers)}")
+
+            # Check for HTTP errors
+            if response.status_code != 200:
+                error_text = response.text
+                logger.error(f"OpenRouter API error {response.status_code}: {error_text}")
+                raise ModelError(
+                    f"OpenRouter API returned {response.status_code}: {error_text}",
+                    error_code="API_ERROR",
+                    details={"status_code": response.status_code, "response": error_text},
+                )
 
             response.raise_for_status()
 
@@ -242,6 +261,7 @@ class OpenRouterService(BaseService):
             for line in response.iter_lines():
                 if line:
                     line = line.decode("utf-8")
+                    logger.debug(f"Received line: {line}")
 
                     # Skip empty lines and comments
                     if not line.strip() or line.startswith("#"):
@@ -253,22 +273,40 @@ class OpenRouterService(BaseService):
 
                         # Check for end of stream
                         if data_str.strip() == "[DONE]":
+                            logger.info("Stream completed")
                             break
 
                         try:
                             chunk = json.loads(data_str)
+                            logger.debug(f"Parsed chunk: {chunk}")
                             yield chunk
                         except json.JSONDecodeError as e:
-                            logger.warning(f"Failed to parse streaming chunk: {e}")
+                            logger.warning(f"Failed to parse streaming chunk: {e}, data: {data_str}")
                             continue
 
+        except requests.exceptions.Timeout as e:
+            logger.error(f"OpenRouter request timeout: {e}")
+            raise ModelError(
+                "Request to OpenRouter API timed out",
+                error_code="TIMEOUT_ERROR",
+                details={"error": str(e)},
+            )
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"OpenRouter connection error: {e}")
+            raise ModelError(
+                "Failed to connect to OpenRouter API",
+                error_code="CONNECTION_ERROR",
+                details={"error": str(e)},
+            )
         except requests.exceptions.RequestException as e:
+            logger.error(f"OpenRouter request error: {e}")
             raise ModelError(
                 "Failed to make streaming request",
                 error_code="STREAMING_REQUEST_ERROR",
                 details={"error": str(e)},
             )
         except Exception as e:
+            logger.error(f"Unexpected streaming error: {e}")
             raise ModelError(
                 "Unexpected error during streaming",
                 error_code="STREAMING_ERROR",
