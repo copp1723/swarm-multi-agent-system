@@ -52,9 +52,8 @@ services:
       - key: MAILGUN_SENDING_KEY
         value: ""
 
-  - type: database
+  - type: pserv
     name: swarm-agents-db
-    env: postgresql
     region: oregon
     plan: starter
   - type: redis
