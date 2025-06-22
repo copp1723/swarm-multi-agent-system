@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Multi-Agent System</title>
+    <style>
+        /* Professional Color Palette */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #f3f4f6;
+            --bg-sidebar: #fafbfc;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-primary-hover: #2563eb;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --accent-purple: #8b5cf6;
+            --border-color: #e2e8f0;
+            --border-light: #f1f5f9;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Dark Mode */
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-sidebar: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --border-light: #475569;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Professional Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent-primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+        }
+
+        .version-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* System Status Section */
+        .system-status {
+            padding: 16px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .status-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-success);
+        }
+
+        .status-dot.warning {
+            background: var(--accent-warning);
+        }
+
+        .status-dot.error {
+            background: var(--accent-danger);
+        }
+
+        /* Agents Section */
+        .agents-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 16px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding: 0 8px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .agent-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .agent-card {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .agent-card.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+
+        .agent-card.active .agent-name,
+        .agent-card.active .agent-description,
+        .agent-card.active .agent-icon {
+            color: white;
+        }
+
+        .agent-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 14px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .agent-card.active .agent-icon {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .agent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .agent-description {
+            font-size: 12px;
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agent-status-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .agent-status-badge.active {
+            background: var(--accent-success);
+        }
+
+        .agent-status-badge.busy {
+            background: var(--accent-warning);
+            animation: pulse 2s infinite;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            min-width: 0;
+        }
+
+        .chat-header {
+            padding: 20px 32px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-agent-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .chat-agent-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chat-agent-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .model-selector:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .model-dropdown {
+            position: relative;
+        }
+
+        .model-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 280px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            z-index: 1000;
+        }
+
+        .model-dropdown-menu.show {
+            display: block;
+        }
+
+        .model-option {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .model-option:last-child {
+            border-bottom: none;
+        }
+
+        .model-option:hover {
+            background: var(--bg-secondary);
+        }
+
+        .model-option.selected {
+            background: var(--bg-tertiary);
+        }
+
+        .model-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .model-description {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .icon-button {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .icon-button:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        /* Chat Messages */
+        .chat-messages {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .message-avatar.user {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .message-avatar.agent {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-text {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-text {
+            background: var(--accent-primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.agent .message-text {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .message.user .message-time {
+            text-align: right;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            text-align: center;
+        }
+
+        .welcome-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: var(--accent-primary);
+        }
+
+        .welcome-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            letter-spacing: -0.025em;
+        }
+
+        .welcome-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .quick-start-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .quick-start-card {
+            padding: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .quick-start-card:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .quick-start-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: var(--accent-primary);
+        }
+
+        .quick-start-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .quick-start-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Chat Input */
+        .chat-input-container {
+            padding: 20px 32px 24px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            display: none;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-field-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            line-height: 1.6;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            background: var(--bg-primary);
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .send-button:hover {
+            background: var(--accent-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Mention Suggestions */
+        .mention-suggestions {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .mention-suggestions.show {
+            display: block;
+        }
+
+        .mention-option {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s ease;
+        }
+
+        .mention-option:hover {
+            background: var(--bg-secondary);
+        }
+
+        .mention-option-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .mention-option-info {
+            flex: 1;
+        }
+
+        .mention-option-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .mention-option-description {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Utility Classes */
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        .text-small {
+            font-size: 12px;
+        }
+
+        .mt-2 {
+            margin-top: 8px;
+        }
+
+        .mt-4 {
+            margin-top: 16px;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+            }
+
+            .chat-header {
+                padding: 16px 20px;
+            }
+
+            .chat-messages {
+                padding: 20px;
+            }
+
+            .chat-input-container {
+                padding: 16px 20px;
+            }
+
+            .quick-start-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading Animation */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loading-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: pulse 1.4s infinite;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z"></path>
+                            <path d="M2 17L12 22L22 17"></path>
+                            <path d="M2 12L12 17L22 12"></path>
+                        </svg>
+                    </div>
+                    <div class="logo-text">Swarm</div>
+                </div>
+                <span class="version-badge">Version 2.0</span>
+            </div>
+
+            <div class="system-status">
+                <div class="status-item">
+                    <div class="status-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                            <rect x="9" y="9" width="6" height="6"></rect>
+                            <line x1="9" y1="1" x2="9" y2="4"></line>
+                            <line x1="15" y1="1" x2="15" y2="4"></line>
+                            <line x1="9" y1="20" x2="9" y2="23"></line>
+                            <line x1="15" y1="20" x2="15" y2="23"></line>
+                            <line x1="20" y1="9" x2="23" y2="9"></line>
+                            <line x1="20" y1="14" x2="23" y2="14"></line>
+                            <line x1="1" y1="9" x2="4" y2="9"></line>
+                            <line x1="1" y1="14" x2="4" y2="14"></line>
+                        </svg>
+                        <span>System Status</span>
+                    </div>
+                    <div class="status-value">
+                        <span class="status-dot"></span>
+                        <span>Connected</span>
+                    </div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span>File Access</span>
+                    </div>
+                    <div class="status-value" id="fileAccessStatus">
+                        <span class="status-dot"></span>
+                        <span>Available</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="agents-section">
+                <div class="section-header">
+                    <h3 class="section-title">Available Agents</h3>
+                </div>
+                <div class="agent-grid" id="agentGrid">
+                    <!-- Agents will be dynamically populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-agent-info">
+                    <h2 class="chat-agent-name" id="chatAgentName">Welcome to Swarm</h2>
+                    <div class="chat-agent-status" id="chatAgentStatus" style="display: none;">
+                        <span class="status-dot"></span>
+                        <span>Active</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="model-dropdown">
+                        <div class="model-selector" id="modelSelector">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span id="selectedModelName">GPT-4o</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="model-dropdown-menu" id="modelDropdownMenu">
+                            <!-- Model options will be populated here -->
+                        </div>
+                    </div>
+                    <button class="icon-button" id="themeToggle" title="Toggle Theme">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-button" id="settingsButton" title="Settings">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6m-9-9h6m6 0h6m-4.24-6.36l-4.24 4.24m0 4.24l4.24 4.24m-8.48 0l4.24-4.24m0-4.24l-4.24-4.24"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z"></path>
+                            <path d="M2 17L12 22L22 17"></path>
+                            <path d="M2 12L12 17L22 12"></path>
+                        </svg>
+                    </div>
+                    <h1 class="welcome-title">Welcome to Swarm</h1>
+                    <p class="welcome-subtitle">
+                        Your intelligent multi-agent collaboration platform. Select an agent to begin, or use @mentions to collaborate with multiple agents simultaneously.
+                    </p>
+                    <div class="quick-start-grid">
+                        <div class="quick-start-card" onclick="app.selectAgent('email_agent')">
+                            <div class="quick-start-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                            </div>
+                            <h3 class="quick-start-title">Email Assistant</h3>
+                            <p class="quick-start-description">Professional email composition, management, and automation</p>
+                        </div>
+                        <div class="quick-start-card" onclick="app.selectAgent('code_agent')">
+                            <div class="quick-start-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="16 18 22 12 16 6"></polyline>
+                                    <polyline points="8 6 2 12 8 18"></polyline>
+                                </svg>
+                            </div>
+                            <h3 class="quick-start-title">Code Assistant</h3>
+                            <p class="quick-start-description">Software development, debugging, and technical solutions</p>
+                        </div>
+                        <div class="quick-start-card" onclick="app.selectAgent('calendar_agent')">
+                            <div class="quick-start-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                            </div>
+                            <h3 class="quick-start-title">Calendar Assistant</h3>
+                            <p class="quick-start-description">Schedule management and meeting coordination</p>
+                        </div>
+                        <div class="quick-start-card" onclick="app.selectAgent('general_agent')">
+                            <div class="quick-start-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                                    <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                                    <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                                </svg>
+                            </div>
+                            <h3 class="quick-start-title">General Assistant</h3>
+                            <p class="quick-start-description">Task coordination and general assistance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container" id="chatInputContainer">
+                <div class="chat-input-wrapper">
+                    <div class="input-field-wrapper">
+                        <div class="mention-suggestions" id="mentionSuggestions">
+                            <!-- Mention suggestions will be populated here -->
+                        </div>
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput" 
+                            placeholder="Type your message... Use @ to mention other agents"
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    <div class="input-actions">
+                        <button class="send-button" id="sendButton" title="Send message">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"+  </script>
+     <script type="module" src="js/components/application.js"+  </script>
+    <script>
+        // Professional icon mappings
+        const agentIcons = {
+            comms_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="10" x2="15" y2="10"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>',
+            email_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>',
+            calendar_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
+            code_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+            debug_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>',
+            general_agent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>'
+        };
+
+        const models = [
+            { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'Most capable OpenAI model' },
+            { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Advanced reasoning and analysis' },
+            { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat', description: 'Efficient and capable' },
+            { id: 'google/gemini-pro', name: 'Gemini Pro', description: 'Google\'s advanced model' },
+            { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and efficient' },
+            { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', description: 'Open source powerhouse' }
+        ];
+
+        class SwarmApp {
+            constructor() {
+                this.socket = null;
+                this.agents = [];
+                this.currentAgent = null;
+                this.selectedModel = models[0];
+                this.isStreaming = false;
+                this.currentStreamingMessage = null;
+                this.conversations = {};
+                
+                this.init();
+            }
+
+            async init() {
+                await this.loadAgents();
+                this.initializeSocket();
+                this.setupEventListeners();
+                this.renderModelDropdown();
+                this.loadThemePreference();
+                this.restoreConversations();
+            }
+
+            async loadAgents() {
+                try {
+                    const response = await fetch('/api/agents/');
+                    const data = await response.json();
+                    
+                    if (data.success && data.data.agents) {
+                        this.agents = Object.entries(data.data.agents).map(([id, agent]) => ({
+                            id: id,
+                            name: agent.name,
+                            description: agent.description,
+                            capabilities: agent.capabilities || [],
+                            status: 'idle'
+                        }));
+                        
+                        this.renderAgents();
+                    }
+                } catch (error) {
+                    console.error('Failed to load agents:', error);
+                    this.showNotification('Failed to load agents', 'error');
+                }
+            }
+
+            renderAgents() {
+                const agentGrid = document.getElementById('agentGrid');
+                agentGrid.innerHTML = '';
+
+                this.agents.forEach(agent => {
+                    const agentCard = document.createElement('div');
+                    agentCard.className = 'agent-card';
+                    agentCard.onclick = () => this.selectAgent(agent.id);
+                    agentCard.id = `agent-${agent.id}`;
+                    
+                    agentCard.innerHTML = `
+                        <div class="agent-icon">
+                            ${agentIcons[agent.id] || agentIcons.general_agent}
+                        </div>
+                        <div class="agent-info">
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-description">${agent.description}</div>
+                        </div>
+                        <div class="agent-status-badge" id="status-${agent.id}"></div>
+                    `;
+                    
+                    agentGrid.appendChild(agentCard);
+                });
+            }
+
+            selectAgent(agentId) {
+                // Update UI
+                document.querySelectorAll('.agent-card').forEach(card => {
+                    card.classList.remove('active');
+                });
+                document.getElementById(`agent-${agentId}`).classList.add('active');
+
+                // Update current agent
+                this.currentAgent = this.agents.find(a => a.id === agentId);
+                
+                // Update header
+                document.getElementById('chatAgentName').textContent = this.currentAgent.name;
+                document.getElementById('chatAgentStatus').style.display = 'flex';
+                
+                // Hide welcome screen, show chat input
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('chatInputContainer').style.display = 'block';
+                
+                // Load conversation for this agent
+                this.loadConversation(agentId);
+                
+                // Focus input
+                document.getElementById('chatInput').focus();
+            }
+
+            renderModelDropdown() {
+                const menu = document.getElementById('modelDropdownMenu');
+                menu.innerHTML = '';
+
+                models.forEach(model => {
+                    const option = document.createElement('div');
+                    option.className = 'model-option';
+                    if (model.id === this.selectedModel.id) {
+                        option.classList.add('selected');
+                    }
+                    
+                    option.innerHTML = `
+                        <div class="model-name">${model.name}</div>
+                        <div class="model-description">${model.description}</div>
+                    `;
+                    
+                    option.onclick = () => this.selectModel(model);
+                    menu.appendChild(option);
+                });
+            }
+
+            selectModel(model) {
+                this.selectedModel = model;
+                document.getElementById('selectedModelName').textContent = model.name;
+                document.getElementById('modelDropdownMenu').classList.remove('show');
+                this.renderModelDropdown();
+            }
+
+            initializeSocket() {
+                this.socket = io('/swarm', {
+                    transports: ['websocket', 'polling']
+                });
+
+                this.socket.on('connect', () => {
+                    console.log('Connected to server');
+                    this.updateSystemStatus('connected');
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                    this.updateSystemStatus('disconnected');
+                });
+
+                this.socket.on('response_stream_start', (data) => {
+                    this.startStreamingResponse(data.agent_id);
+                });
+
+                this.socket.on('response_stream_chunk', (data) => {
+                    if (data.error) {
+                        this.addMessage(data.chunk, 'error');
+                        this.endStreamingResponse();
+                    } else {
+                        this.appendStreamingChunk(data.chunk);
+                        if (data.is_final) {
+                            this.endStreamingResponse();
+                        }
+                    }
+                });
+
+                this.socket.on('response_stream_complete', (data) => {
+                    this.endStreamingResponse();
+                    this.updateAgentStatus(data.agent_id, 'idle');
+                });
+
+                this.socket.on('response_stream_error', (data) => {
+                    this.addMessage(`Error: ${data.error}`, 'error');
+                    this.endStreamingResponse();
+                });
+            }
+
+            setupEventListeners() {
+                // Model selector
+                document.getElementById('modelSelector').onclick = () => {
+                    document.getElementById('modelDropdownMenu').classList.toggle('show');
+                };
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.model-dropdown')) {
+                        document.getElementById('modelDropdownMenu').classList.remove('show');
+                    }
+                });
+
+                // Theme toggle
+                document.getElementById('themeToggle').onclick = () => this.toggleTheme();
+
+                // Chat input
+                const chatInput = document.getElementById('chatInput');
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                chatInput.addEventListener('input', () => {
+                    this.autoResizeTextarea();
+                    this.checkForMentions();
+                });
+
+                // Send button
+                document.getElementById('sendButton').onclick = () => this.sendMessage();
+            }
+
+            sendMessage() {
+                const chatInput = document.getElementById('chatInput');
+                const message = chatInput.value.trim();
+                
+                if (!message || !this.currentAgent || this.isStreaming) return;
+                
+                // Add user message
+                this.addMessage(message, 'user');
+                
+                // Save to conversation
+                this.saveToConversation(this.currentAgent.id, message, 'user');
+                
+                // Clear input
+                chatInput.value = '';
+                this.autoResizeTextarea();
+                
+                // Update agent status
+                this.updateAgentStatus(this.currentAgent.id, 'busy');
+                
+                // Send via socket
+                if (this.socket && this.socket.connected) {
+                    this.socket.emit('send_message', {
+                        content: message,
+                        recipient_id: this.currentAgent.id,
+                        message_type: 'user_message',
+                        model: this.selectedModel.id,
+                        stream_enabled: true
+                    });
+                } else {
+                    this.showNotification('Connection lost. Please refresh.', 'error');
+                }
+            }
+
+            startStreamingResponse(agentId) {
+                this.isStreaming = true;
+                
+                const messagesContainer = document.getElementById('chatMessages');
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message agent';
+                
+                messageElement.innerHTML = `
+                    <div class="message-avatar agent">
+                        ${agentIcons[agentId] || agentIcons.general_agent}
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text" id="streamingMessage"></div>
+                        <div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                `;
+                
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                this.currentStreamingMessage = document.getElementById('streamingMessage');
+            }
+
+            appendStreamingChunk(chunk) {
+                if (!this.currentStreamingMessage) return;
+                
+                this.currentStreamingMessage.textContent += chunk;
+                
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            endStreamingResponse() {
+                this.isStreaming = false;
+                
+                if (this.currentStreamingMessage && this.currentAgent) {
+                    const content = this.currentStreamingMessage.textContent;
+                    this.saveToConversation(this.currentAgent.id, content, 'agent');
+                    this.currentStreamingMessage = null;
+                }
+                
+                this.updateAgentStatus(this.currentAgent.id, 'idle');
+            }
+
+            addMessage(content, type) {
+                const messagesContainer = document.getElementById('chatMessages');
+                const messageElement = document.createElement('div');
+                messageElement.className = `message ${type}`;
+                
+                if (type === 'user') {
+                    messageElement.innerHTML = `
+                        <div class="message-avatar user">U</div>
+                        <div class="message-content">
+                            <div class="message-text">${this.escapeHtml(content)}</div>
+                            <div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    `;
+                } else if (type === 'agent') {
+                    const icon = this.currentAgent ? agentIcons[this.currentAgent.id] : agentIcons.general_agent;
+                    messageElement.innerHTML = `
+                        <div class="message-avatar agent">${icon}</div>
+                        <div class="message-content">
+                            <div class="message-text">${this.escapeHtml(content)}</div>
+                            <div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    `;
+                }
+                
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            updateAgentStatus(agentId, status) {
+                const badge = document.getElementById(`status-${agentId}`);
+                if (badge) {
+                    badge.className = `agent-status-badge ${status}`;
+                }
+            }
+
+            updateSystemStatus(status) {
+                const fileAccessStatus = document.getElementById('fileAccessStatus');
+                if (status === 'connected') {
+                    fileAccessStatus.innerHTML = '<span class="status-dot"></span><span>Available</span>';
+                } else {
+                    fileAccessStatus.innerHTML = '<span class="status-dot error"></span><span>Offline</span>';
+                }
+            }
+
+            autoResizeTextarea() {
+                const textarea = document.getElementById('chatInput');
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
+
+            checkForMentions() {
+                const input = document.getElementById('chatInput');
+                const text = input.value;
+                const lastAtIndex = text.lastIndexOf('@');
+                
+                if (lastAtIndex >= 0 && lastAtIndex === text.length - 1 || 
+                    (lastAtIndex >= 0 && text.substring(lastAtIndex).match(/^@\w*$/))) {
+                    this.showMentionSuggestions(text.substring(lastAtIndex + 1));
+                } else {
+                    this.hideMentionSuggestions();
+                }
+            }
+
+            showMentionSuggestions(query) {
+                const suggestions = document.getElementById('mentionSuggestions');
+                suggestions.innerHTML = '';
+                
+                const filtered = this.agents.filter(agent => 
+                    agent.name.toLowerCase().includes(query.toLowerCase()) ||
+                    agent.id.toLowerCase().includes(query.toLowerCase())
+                );
+                
+                filtered.forEach(agent => {
+                    const option = document.createElement('div');
+                    option.className = 'mention-option';
+                    option.innerHTML = `
+                        <div class="mention-option-icon">
+                            ${agentIcons[agent.id] || agentIcons.general_agent}
+                        </div>
+                        <div class="mention-option-info">
+                            <div class="mention-option-name">${agent.name}</div>
+                            <div class="mention-option-description">${agent.description}</div>
+                        </div>
+                    `;
+                    option.onclick = () => this.insertMention(agent);
+                    suggestions.appendChild(option);
+                });
+                
+                if (filtered.length > 0) {
+                    suggestions.classList.add('show');
+                }
+            }
+
+            hideMentionSuggestions() {
+                document.getElementById('mentionSuggestions').classList.remove('show');
+            }
+
+            insertMention(agent) {
+                const input = document.getElementById('chatInput');
+                const text = input.value;
+                const lastAtIndex = text.lastIndexOf('@');
+                
+                input.value = text.substring(0, lastAtIndex) + `@${agent.id} `;
+                this.hideMentionSuggestions();
+                input.focus();
+            }
+
+            toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                if (currentTheme === 'dark') {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+
+            loadThemePreference() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            }
+
+            saveToConversation(agentId, message, type) {
+                if (!this.conversations[agentId]) {
+                    this.conversations[agentId] = [];
+                }
+                
+                this.conversations[agentId].push({
+                    content: message,
+                    type: type,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Save to localStorage
+                localStorage.setItem(`swarm_conversation_${agentId}`, JSON.stringify(this.conversations[agentId]));
+            }
+
+            loadConversation(agentId) {
+                // Clear current messages
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = '';
+                
+                // Load from localStorage
+                const saved = localStorage.getItem(`swarm_conversation_${agentId}`);
+                if (saved) {
+                    this.conversations[agentId] = JSON.parse(saved);
+                    
+                    // Render saved messages
+                    this.conversations[agentId].forEach(msg => {
+                        this.addMessage(msg.content, msg.type);
+                    });
+                } else {
+                    // Show welcome message for new conversation
+                    this.addMessage(
+                        `Hello! I'm ${this.currentAgent.name}. ${this.currentAgent.description} How can I help you today?`,
+                        'agent'
+                    );
+                }
+            }
+
+            restoreConversations() {
+                // Load all saved conversations
+                this.agents.forEach(agent => {
+                    const saved = localStorage.getItem(`swarm_conversation_${agent.id}`);
+                    if (saved) {
+                        this.conversations[agent.id] = JSON.parse(saved);
+                    }
+                });
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showNotification(message, type = 'info') {
+                // Implementation for notifications
+                console.log(`${type}: ${message}`);
+            }
+        }
+
+        // Initialize the app
+        const app = new SwarmApp();
+    </script>
+</body>
+</html>value = text.substring(0, lastAtIndex) + `@${agent.id} `;
+                this.hideMentionSuggestions();
+                input.focus();
+            }
+
+            toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                if (currentTheme === 'dark') {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+
+            loadThemePreference() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            }
+
+            saveToConversation(agentId, message, type) {
+                if (!this.conversations[agentId]) {
+                    this.conversations[agentId] = [];
+                }
+                
+                this.conversations[agentId].push({
+                    content: message,
+                    type: type,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Save to localStorage
+                localStorage.setItem(`swarm_conversation_${agentId}`, JSON.stringify(this.conversations[agentId]));
+            }
+
+            loadConversation(agentId) {
+                // Clear current messages
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = '';
+                
+                // Load from localStorage
+                const saved = localStorage.getItem(`swarm_conversation_${agentId}`);
+                if (saved) {
+                    this.conversations[agentId] = JSON.parse(saved);
+                    
+                    // Render saved messages
+                    this.conversations[agentId].forEach(msg => {
+                        this.addMessage(msg.content, msg.type);
+                    });
+                } else {
+                    // Show welcome message for new conversation
+                    this.addMessage(
+                        `Hello! I'm ${this.currentAgent.name}. ${this.currentAgent.description} How can I help you today?`,
+                        'agent'
+                    );
+                }
+            }
+
+            restoreConversations() {
+                // Load all saved conversations
+                this.agents.forEach(agent => {
+                    const saved = localStorage.getItem(`swarm_conversation_${agent.id}`);
+                    if (saved) {
+                        this.conversations[agent.id] = JSON.parse(saved);
+                    }
+                });
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showNotification(message, type = 'info') {
+                // Implementation for notifications
+                console.log(`${type}: ${message}`);
+            }
+        }
+
+        // Initialize the app
+        const app = new SwarmApp();
+    </script>
+</body>
+</html>

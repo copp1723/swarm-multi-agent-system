@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Multi-Agent System v2.0</title>
+    <style>
+        /* Modern, soft color palette - Enhanced for chat focus */
+        :root {
+            --bg-primary: #f8f9fb;
+            --bg-secondary: #f1f3f6;
+            --bg-tertiary: #ffffff;
+            --bg-sidebar: #f4f5f7;
+            --bg-chat: #fafbfc;
+            --text-primary: #2d3748;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --accent-orange: #ff9a56;
+            --accent-purple: #a78bfa;
+            --accent-green: #48bb78;
+            --accent-red: #f56565;
+            --accent-blue: #4299e1;
+            --border-light: #e2e8f0;
+            --border-subtle: #edf2f7;
+            --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+        }
+
+        /* Dark mode color variables */
+        [data-theme="dark"] {
+            --bg-primary: #1a202c;
+            --bg-secondary: #2d3748;
+            --bg-tertiary: #374151;
+            --bg-sidebar: #2d3748;
+            --bg-chat: #1f2937;
+            --text-primary: #f7fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #a0aec0;
+            --accent-orange: #ff9a56;
+            --accent-purple: #a78bfa;
+            --accent-green: #48bb78;
+            --accent-red: #f56565;
+            --accent-blue: #4299e1;
+            --border-light: #4a5568;
+            --border-subtle: #374151;
+            --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Enhanced Left Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .sidebar-header {
+            padding: 28px 24px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-sidebar) 100%);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .version {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* MCP Status Section */
+        .mcp-status-section {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--bg-tertiary);
+        }
+
+        .mcp-status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .mcp-status-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mcp-refresh-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .mcp-refresh-btn:hover {
+            color: var(--accent-orange);
+            background: var(--bg-secondary);
+        }
+
+        .mcp-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+        }
+
+        .mcp-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .mcp-status-dot.healthy {
+            background: var(--accent-green);
+            box-shadow: 0 0 0 2px rgba(72, 187, 120, 0.2);
+        }
+
+        .mcp-status-dot.unhealthy {
+            background: var(--accent-red);
+            box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.2);
+        }
+
+        .mcp-status-dot.unknown {
+            background: var(--text-muted);
+            box-shadow: 0 0 0 2px rgba(113, 128, 150, 0.2);
+        }
+
+        .mcp-status-dot.connecting {
+            background: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .mcp-status-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mcp-status-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .mcp-status-details {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .mcp-workspace-info {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .mcp-workspace-path {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+            background: var(--bg-primary);
+            padding: 4px 6px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .mcp-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .mcp-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Agents Section */
+        .agents-section {
+            flex: 1;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            padding: 0 24px;
+        }
+
+        .agent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 16px;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .agent-item:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-orange);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .agent-item.active {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8a4c 100%);
+            color: white;
+            border-color: var(--accent-orange);
+            box-shadow: var(--shadow-large);
+        }
+
+        .agent-item.active .agent-name,
+        .agent-item.active .agent-status {
+            color: white;
+        }
+
+        .agent-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-right: 12px;
+            flex-shrink: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .agent-item.active .agent-icon {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .agent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .agent-status {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Enhanced Status Indicators */
+        .agent-status-indicators {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-left: 8px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px var(--bg-tertiary);
+            transition: all 0.2s ease;
+        }
+
+        .status-indicator.idle { 
+            background: var(--text-muted); 
+        }
+        .status-indicator.active { 
+            background: var(--accent-orange); 
+        }
+        .status-indicator.thinking { 
+            background: var(--accent-purple);
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.processing { 
+            background: var(--accent-blue);
+            animation: pulse 1.5s infinite;
+        }
+        .status-indicator.error { 
+            background: var(--accent-red); 
+        }
+
+        .mcp-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .mcp-indicator.connected { 
+            background: var(--accent-green); 
+        }
+        .mcp-indicator.disconnected { 
+            background: var(--accent-red); 
+        }
+        .mcp-indicator.unknown { 
+            background: var(--text-muted); 
+        }
+
+        .agent-item.active .status-indicator,
+        .agent-item.active .mcp-indicator {
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Enhanced Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-chat);
+            min-width: 0;
+        }
+
+        .chat-header {
+            padding: 20px 32px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-soft);
+            z-index: 10;
+            position: relative;
+        }
+
+        .chat-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .chat-title h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            color: var(--accent-green);
+            background: rgba(72, 187, 120, 0.1);
+        }
+
+        .connection-status.disconnected {
+            color: var(--accent-red);
+            background: rgba(245, 101, 101, 0.1);
+        }
+
+        .connection-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .agent-typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon-button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-light);
+        }
+
+        .icon-button:hover {
+            background: var(--accent-orange);
+            color: white;
+            border-color: var(--accent-orange);
+            transform: translateY(-1px);
+        }
+
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .model-dropdown {
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 160px;
+        }
+
+        .model-dropdown:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+        }
+
+        /* Chat Messages Area */
+        .chat-messages {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            border: 1px solid var(--border-light);
+        }
+
+        .message-avatar.user {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-orange) 100%);
+            color: white;
+            border-color: transparent;
+        }
+
+        .message-avatar.agent {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message.user .message-content {
+            text-align: right;
+        }
+
+        .message-text {
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .message.user .message-text {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8a4c 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.agent .message-text {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.system .message-text {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-style: italic;
+            text-align: center;
+            border-radius: 20px;
+        }
+
+        .message.error .message-text {
+            background: rgba(245, 101, 101, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(245, 101, 101, 0.2);
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+
+        .message.user .message-time {
+            text-align: right;
+        }
+
+        /* Streaming message styles */
+        .message.streaming .message-text {
+            position: relative;
+        }
+
+        .streaming-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--accent-orange);
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Welcome State */
+        .welcome-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            opacity: 0.6;
+        }
+
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .welcome-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            max-width: 500px;
+            line-height: 1.6;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .quick-action {
+            padding: 20px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .quick-action:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-orange);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .quick-action-icon {
+            font-size: 24px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .quick-action-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .quick-action-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Chat Input Area */
+        .chat-input-container {
+            padding: 20px 32px 24px;
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border-subtle);
+            display: none;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            max-width: 100%;
+        }
+
+        .chat-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            line-height: 1.5;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+            background: var(--bg-tertiary);
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ff8a4c 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .send-button:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+            }
+            
+            .chat-header {
+                padding: 16px 20px;
+            }
+            
+            .chat-messages {
+                padding: 16px 20px;
+            }
+            
+            .chat-input-container {
+                padding: 16px 20px 20px;
+            }
+            
+            .message {
+                max-width: 95%;
+            }
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            box-shadow: var(--shadow-large);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 300px;
+        }
+
+        .notification.success {
+            border-color: var(--accent-green);
+            background: rgba(72, 187, 120, 0.1);
+            color: var(--accent-green);
+        }
+
+        .notification.error {
+            border-color: var(--accent-red);
+            background: rgba(245, 101, 101, 0.1);
+            color: var(--accent-red);
+        }
+
+        .notification.info {
+            border-color: var(--accent-blue);
+            background: rgba(66, 153, 225, 0.1);
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Enhanced Left Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">Swarm Multi-Agent System</div>
+                <div class="version">v2.0</div>
+            </div>
+            
+            <!-- MCP Status Section -->
+            <div class="mcp-status-section">
+                <div class="mcp-status-header">
+                    <div class="mcp-status-title">Filesystem Access</div>
+                    <button class="mcp-refresh-btn" id="mcpRefreshBtn" title="Refresh MCP Status">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                            <path d="M21 3v5h-5"></path>
+                            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                            <path d="M3 21v-5h5"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="mcp-status-indicator" id="mcpStatusIndicator">
+                    <div class="mcp-status-dot unknown" id="mcpStatusDot"></div>
+                    <div class="mcp-status-info">
+                        <div class="mcp-status-label" id="mcpStatusLabel">Checking...</div>
+                        <div class="mcp-status-details" id="mcpStatusDetails">Initializing filesystem access</div>
+                    </div>
+                </div>
+                <div class="mcp-workspace-info" id="mcpWorkspaceInfo" style="display: none;">
+                    <div class="mcp-workspace-path" id="mcpWorkspacePath"></div>
+                    <div class="mcp-stats" id="mcpStats"></div>
+                </div>
+            </div>
+            
+            <div class="agents-section">
+                <div class="section-title">Available Agents</div>
+                <div class="agent-list" id="agentList">
+                    <!-- Agents will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Main Content -->
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <h2 id="chatTitle">Welcome to Swarm</h2>
+                    <div class="agent-typing-indicator" id="typingIndicator">
+                        <span>Agent is typing</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <div class="connection-status disconnected" id="connectionStatus">
+                        <div class="connection-dot"></div>
+                        <span>Connecting...</span>
+                    </div>
+                    <div class="model-selector">
+                        <select class="model-dropdown" id="modelSelector">
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                            <option value="google/gemini-pro">Gemini Pro</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                        </select>
+                    </div>
+                    <button class="icon-button" id="darkModeToggle" title="Toggle Dark Mode">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-state" id="welcomeState">
+                    <div class="welcome-icon">🤖</div>
+                    <h1 class="welcome-title">Welcome to Swarm</h1>
+                    <p class="welcome-subtitle">
+                        Your intelligent multi-agent collaboration system. Select an agent from the sidebar to start chatting, 
+                        or use @mentions to collaborate with multiple agents at once.
+                    </p>
+                    <div class="quick-actions">
+                        <div class="quick-action" onclick="app.selectAgent('email_agent')">
+                            <span class="quick-action-icon">📧</span>
+                            <div class="quick-action-title">Email Agent</div>
+                            <div class="quick-action-desc">Professional email composition and management</div>
+                        </div>
+                        <div class="quick-action" onclick="app.selectAgent('code_agent')">
+                            <span class="quick-action-icon">💻</span>
+                            <div class="quick-action-title">Code Agent</div>
+                            <div class="quick-action-desc">Software development and debugging assistance</div>
+                        </div>
+                        <div class="quick-action" onclick="app.selectAgent('calendar_agent')">
+                            <span class="quick-action-icon">📅</span>
+                            <div class="quick-action-title">Calendar Agent</div>
+                            <div class="quick-action-desc">Scheduling and time management</div>
+                        </div>
+                        <div class="quick-action" onclick="app.selectAgent('general_agent')">
+                            <span class="quick-action-icon">🤖</span>
+                            <div class="quick-action-title">General Agent</div>
+                            <div class="quick-action-desc">Task coordination and general assistance</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container" id="chatInputContainer">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        class="chat-input" 
+                        id="chatInput" 
+                        placeholder="Type your message... (use @agent to mention other agents)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-button" id="sendButton" title="Send message (Enter)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script>
+        class SwarmApp {
+            constructor() {
+                this.socket = null;
+                this.agents = [];
+                this.currentAgent = null;
+                this.isStreaming = false;
+                this.currentStreamingMessage = null;
+                this.mcpStatus = { status: 'unknown' };
+                
+                this.init();
+            }
+
+            async init() {
+                await this.loadAgents();
+                this.initializeSocket();
+                this.setupEventListeners();
+                this.checkMCPStatus();
+                
+                // Check for dark mode preference
+                if (localStorage.getItem('darkMode') === 'true') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            }
+
+            async loadAgents() {
+                try {
+                    const response = await fetch('/api/agents/');
+                    const data = await response.json();
+                    
+                    if (data.success && data.data.agents) {
+                        this.agents = Object.entries(data.data.agents).map(([id, agent]) => ({
+                            id: id,
+                            name: agent.name,
+                            description: agent.description,
+                            capabilities: agent.capabilities || [],
+                            mcp_status: agent.mcp_status || 'unknown'
+                        }));
+                        
+                        this.renderAgents();
+                        
+                        // Update overall MCP status
+                        if (data.data.mcp_filesystem_status) {
+                            this.updateMCPStatus({
+                                status: data.data.mcp_filesystem_status,
+                                timestamp: data.data.timestamp
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load agents:', error);
+                    this.showNotification('Failed to load agents', 'error');
+                }
+            }
+
+            initializeSocket() {
+                this.socket = io('/swarm', {
+                    transports: ['websocket', 'polling']
+                });
+
+                this.socket.on('connect', () => {
+                    console.log('Connected to server');
+                    this.updateConnectionStatus(true);
+                    this.checkMCPStatus(); // Check MCP status on connect
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                    this.updateConnectionStatus(false);
+                });
+
+                this.socket.on('connection_established', (data) => {
+                    console.log('Connection established:', data);
+                    if (data.mcp_status) {
+                        this.updateMCPStatus(data.mcp_status);
+                    }
+                });
+
+                this.socket.on('agent_status_update', (data) => {
+                    this.updateAgentStatus(data.agent_id, data.status);
+                    if (data.mcp_status) {
+                        this.updateAgentMCPStatus(data.agent_id, data.mcp_status);
+                    }
+                });
+
+                this.socket.on('mcp_status_response', (data) => {
+                    this.updateMCPStatus(data);
+                });
+
+                this.socket.on('response_stream_start', (data) => {
+                    this.startStreamingResponse(data.agent_id);
+                });
+
+                this.socket.on('response_stream_chunk', (data) => {
+                    if (data.error) {
+                        this.addMessage(data.chunk, 'error');
+                        this.endStreamingResponse();
+                    } else {
+                        this.appendStreamingChunk(data.chunk);
+                        if (data.is_final) {
+                            this.endStreamingResponse();
+                        }
+                    }
+                });
+
+                this.socket.on('response_stream_complete', (data) => {
+                    this.endStreamingResponse();
+                    this.updateAgentStatus(data.agent_id, 'idle');
+                });
+
+                this.socket.on('response_stream_error', (data) => {
+                    this.addMessage(`Error: ${data.error}`, 'error');
+                    this.endStreamingResponse();
+                });
+
+                this.socket.on('error', (data) => {
+                    console.error('Socket error:', data);
+                    this.showNotification(data.message || 'Connection error', 'error');
+                });
+            }
+
+            updateConnectionStatus(connected) {
+                const statusElement = document.getElementById('connectionStatus');
+                if (connected) {
+                    statusElement.className = 'connection-status connected';
+                    statusElement.innerHTML = '<div class="connection-dot"></div><span>Connected</span>';
+                } else {
+                    statusElement.className = 'connection-status disconnected';
+                    statusElement.innerHTML = '<div class="connection-dot"></div><span>Disconnected</span>';
+                }
+            }
+
+            async checkMCPStatus() {
+                try {
+                    // Request MCP status via socket
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('get_mcp_status');
+                    }
+                    
+                    // Also try direct API call as fallback
+                    const response = await fetch('/api/mcp/status');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.updateMCPStatus(data);
+                    }
+                } catch (error) {
+                    console.error('Failed to check MCP status:', error);
+                    this.updateMCPStatus({
+                        status: 'error',
+                        error: 'Failed to check status'
+                    });
+                }
+            }
+
+            updateMCPStatus(statusData) {
+                this.mcpStatus = statusData;
+                
+                const dot = document.getElementById('mcpStatusDot');
+                const label = document.getElementById('mcpStatusLabel');
+                const details = document.getElementById('mcpStatusDetails');
+                const workspaceInfo = document.getElementById('mcpWorkspaceInfo');
+                const workspacePath = document.getElementById('mcpWorkspacePath');
+                const stats = document.getElementById('mcpStats');
+
+                // Update status dot
+                dot.className = `mcp-status-dot ${statusData.status}`;
+
+                // Update label and details
+                switch (statusData.status) {
+                    case 'healthy':
+                        label.textContent = 'Connected';
+                        details.textContent = 'Filesystem access available';
+                        break;
+                    case 'unhealthy':
+                        label.textContent = 'Disconnected';
+                        details.textContent = statusData.error || 'Filesystem access unavailable';
+                        break;
+                    case 'connecting':
+                        label.textContent = 'Connecting';
+                        details.textContent = 'Establishing filesystem connection';
+                        break;
+                    case 'error':
+                        label.textContent = 'Error';
+                        details.textContent = statusData.error || 'Connection error';
+                        break;
+                    default:
+                        label.textContent = 'Unknown';
+                        details.textContent = 'Status unknown';
+                }
+
+                // Update workspace info
+                if (statusData.stats && statusData.status === 'healthy') {
+                    workspaceInfo.style.display = 'block';
+                    workspacePath.textContent = statusData.stats.workspace_path || '/tmp/swarm_workspace';
+                    
+                    const fileCount = statusData.stats.file_count || 0;
+                    const dirCount = statusData.stats.directory_count || 0;
+                    const sizeText = statusData.stats.total_size_mb ? `${statusData.stats.total_size_mb}MB` : '0MB';
+                    
+                    stats.innerHTML = `
+                        <div class="mcp-stat">
+                            <span>📁</span>
+                            <span>${dirCount} dirs</span>
+                        </div>
+                        <div class="mcp-stat">
+                            <span>📄</span>
+                            <span>${fileCount} files</span>
+                        </div>
+                        <div class="mcp-stat">
+                            <span>💾</span>
+                            <span>${sizeText}</span>
+                        </div>
+                    `;
+                } else {
+                    workspaceInfo.style.display = 'none';
+                }
+
+                // Update agent MCP indicators
+                this.updateAllAgentMCPStatus(statusData.status);
+            }
+
+            updateAllAgentMCPStatus(mcpStatus) {
+                this.agents.forEach(agent => {
+                    this.updateAgentMCPStatus(agent.id, mcpStatus);
+                });
+            }
+
+            updateAgentMCPStatus(agentId, mcpStatus) {
+                const mcpIndicator = document.getElementById(`mcp-${agentId}`);
+                if (mcpIndicator) {
+                    mcpIndicator.className = `mcp-indicator ${mcpStatus}`;
+                }
+            }
+
+            renderAgents() {
+                const agentList = document.getElementById('agentList');
+                agentList.innerHTML = '';
+
+                this.agents.forEach(agent => {
+                    const agentElement = document.createElement('div');
+                    agentElement.className = 'agent-item';
+                    agentElement.onclick = () => this.selectAgent(agent.id);
+                    
+                    agentElement.innerHTML = `
+                        <div class="agent-icon ${agent.id}">
+                            ${this.getAgentIcon(agent.id)}
+                        </div>
+                        <div class="agent-info">
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-status">${agent.description}</div>
+                        </div>
+                        <div class="agent-status-indicators">
+                            <div class="status-indicator idle" id="status-${agent.id}"></div>
+                            <div class="mcp-indicator ${agent.mcp_status}" id="mcp-${agent.id}" title="MCP Filesystem Access"></div>
+                        </div>
+                    `;
+                    
+                    agentList.appendChild(agentElement);
+                });
+            }
+
+            getAgentIcon(agentId) {
+                const icons = {
+                    email_agent: '📧',
+                    calendar_agent: '📅',
+                    code_agent: '💻',
+                    debug_agent: '🔍',
+                    general_agent: '🤖'
+                };
+                return icons[agentId] || '🤖';
+            }
+
+            selectAgent(agentId) {
+                // Remove active class from all agents
+                document.querySelectorAll('.agent-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+
+                // Add active class to selected agent
+                const selectedAgent = Array.from(document.querySelectorAll('.agent-item'))
+                    .find(item => item.onclick.toString().includes(agentId));
+                if (selectedAgent) {
+                    selectedAgent.classList.add('active');
+                }
+
+                this.currentAgent = this.agents.find(agent => agent.id === agentId);
+                if (this.currentAgent) {
+                    const chatTitle = document.getElementById('chatTitle');
+                    const welcomeState = document.getElementById('welcomeState');
+                    const chatInputContainer = document.getElementById('chatInputContainer');
+                    
+                    if (chatTitle) {
+                        chatTitle.textContent = this.currentAgent.name;
+                    }
+                    
+                    if (welcomeState) {
+                        welcomeState.style.display = 'none';
+                    }
+                    
+                    if (chatInputContainer) {
+                        chatInputContainer.style.display = 'block';
+                    }
+                    
+                    // Clear messages and show agent greeting
+                    this.clearMessages();
+                    this.addMessage(
+                        `Hello! I'm ${this.currentAgent.name}. ${this.currentAgent.description} How can I help you today?`,
+                        'agent',
+                        agentId
+                    );
+
+                    // Subscribe to agent updates
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('subscribe_agent', { agent_id: agentId });
+                    }
+                    
+                    // Focus on input
+                    setTimeout(() => {
+                        document.getElementById('chatInput').focus();
+                    }, 100);
+                }
+            }
+
+            setupEventListeners() {
+                const chatInput = document.getElementById('chatInput');
+                const sendButton = document.getElementById('sendButton');
+                const mcpRefreshBtn = document.getElementById('mcpRefreshBtn');
+                const darkModeToggle = document.getElementById('darkModeToggle');
+
+                if (sendButton) {
+                    sendButton.onclick = (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    };
+                }
+                
+                if (chatInput) {
+                    chatInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            this.sendMessage();
+                        }
+                    });
+
+                    chatInput.addEventListener('input', () => {
+                        this.autoResizeTextarea();
+                    });
+                }
+
+                if (mcpRefreshBtn) {
+                    mcpRefreshBtn.onclick = () => {
+                        this.checkMCPStatus();
+                    };
+                }
+
+                if (darkModeToggle) {
+                    darkModeToggle.onclick = () => {
+                        this.toggleDarkMode();
+                    };
+                }
+            }
+
+            toggleDarkMode() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                if (newTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('darkMode', 'true');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('darkMode', 'false');
+                }
+            }
+
+            autoResizeTextarea() {
+                const textarea = document.getElementById('chatInput');
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }
+
+            sendMessage() {
+                const chatInput = document.getElementById('chatInput');
+                if (!chatInput) return;
+                
+                const message = chatInput.value.trim();
+                
+                if (!message || !this.currentAgent || this.isStreaming) return;
+                
+                if (!this.socket || !this.socket.connected) {
+                    this.showNotification('Not connected to server. Please wait...', 'error');
+                    return;
+                }
+
+                // Add user message to chat
+                this.addMessage(message, 'user');
+                
+                const modelSelector = document.getElementById('modelSelector');
+                const selectedModel = modelSelector ? modelSelector.value : 'openai/gpt-4o';
+                
+                // Send message to agent
+                this.socket.emit('send_message', {
+                    content: message,
+                    recipient_id: this.currentAgent.id,
+                    message_type: 'user_message',
+                    model: selectedModel,
+                    stream_enabled: true
+                });
+                
+                // Update agent status to thinking
+                this.updateAgentStatus(this.currentAgent.id, 'thinking');
+
+                // Clear input and show typing indicator
+                chatInput.value = '';
+                this.autoResizeTextarea();
+                this.showTypingIndicator();
+            }
+
+            updateAgentStatus(agentId, status) {
+                const statusIndicator = document.getElementById(`status-${agentId}`);
+                if (statusIndicator) {
+                    statusIndicator.className = `status-indicator ${status}`;
+                }
+            }
+
+            showTypingIndicator() {
+                const indicator = document.getElementById('typingIndicator');
+                indicator.style.display = 'flex';
+            }
+
+            hideTypingIndicator() {
+                const indicator = document.getElementById('typingIndicator');
+                indicator.style.display = 'none';
+            }
+
+            startStreamingResponse(agentId) {
+                this.isStreaming = true;
+                this.hideTypingIndicator();
+                
+                const messagesContainer = document.getElementById('chatMessages');
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message agent streaming';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar agent';
+                avatar.innerHTML = this.getAgentIcon(agentId);
+
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-content';
+                
+                const messageText = document.createElement('div');
+                messageText.className = 'message-text';
+                messageText.innerHTML = '<span class="streaming-cursor"></span>';
+                
+                const messageTime = document.createElement('div');
+                messageTime.className = 'message-time';
+                messageTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                messageContent.appendChild(messageText);
+                messageContent.appendChild(messageTime);
+                
+                messageElement.appendChild(avatar);
+                messageElement.appendChild(messageContent);
+                
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                this.currentStreamingMessage = messageText;
+            }
+
+            appendStreamingChunk(chunk) {
+                if (!this.currentStreamingMessage) return;
+                
+                const cursor = this.currentStreamingMessage.querySelector('.streaming-cursor');
+                if (cursor) cursor.remove();
+                
+                const currentText = this.currentStreamingMessage.textContent || '';
+                this.currentStreamingMessage.textContent = currentText + chunk;
+                
+                const newCursor = document.createElement('span');
+                newCursor.className = 'streaming-cursor';
+                this.currentStreamingMessage.appendChild(newCursor);
+                
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            endStreamingResponse() {
+                this.isStreaming = false;
+                
+                if (this.currentStreamingMessage) {
+                    const cursor = this.currentStreamingMessage.querySelector('.streaming-cursor');
+                    if (cursor) cursor.remove();
+                    
+                    const messageElement = this.currentStreamingMessage.closest('.message');
+                    if (messageElement) {
+                        messageElement.classList.remove('streaming');
+                    }
+                    
+                    this.currentStreamingMessage = null;
+                }
+                
+                this.hideTypingIndicator();
+            }
+
+            addMessage(content, type, agentId = null, agentName = null) {
+                const messagesContainer = document.getElementById('chatMessages');
+                const messageElement = document.createElement('div');
+                messageElement.className = `message ${type}`;
+                
+                if (type === 'user') {
+                    messageElement.innerHTML = `
+                        <div class="message-avatar user">👤</div>
+                        <div class="message-content">
+                            <div class="message-text">${this.escapeHtml(content)}</div>
+                            <div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    `;
+                } else if (type === 'agent') {
+                    const icon = agentId ? this.getAgentIcon(agentId) : '🤖';
+                    messageElement.innerHTML = `
+                        <div class="message-avatar agent">${icon}</div>
+                        <div class="message-content">
+                            <div class="message-text">${this.escapeHtml(content)}</div>
+                            <div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    `;
+                } else {
+                    messageElement.innerHTML = `
+                        <div class="message-content">
+                            <div class="message-text">${this.escapeHtml(content)}</div>
+                        </div>
+                    `;
+                }
+                
+                messagesContainer.appendChild(messageElement);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            clearMessages() {
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = '';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
+            }
+        }
+
+        // Initialize the app
+        const app = new SwarmApp();
+    </script>
+</body>
+</html>
+

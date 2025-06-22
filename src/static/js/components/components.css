@@ -1,0 +1,283 @@
+/* Enhanced Components CSS for Swarm Collaboration Features */
+
+/* Agent Badge Styling */
+.agent-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--agent-badge-bg, rgba(59, 130, 246, 0.1));
+    border: 1px solid var(--agent-badge-border, rgba(59, 130, 246, 0.2));
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--agent-badge-text, #3b82f6);
+    margin-bottom: 8px;
+    width: fit-content;
+}
+
+.agent-badge-icon {
+    display: flex;
+    align-items: center;
+    width: 16px;
+    height: 16px;
+}
+
+.agent-badge-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.agent-badge-name {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Mention Suggestions Dropdown */
+.mention-suggestions {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface-color, white);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    margin-bottom: 8px;
+}
+
+.mention-suggestions.show {
+    display: block;
+}
+
+.mention-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid var(--border-light, #f3f4f6);
+}
+
+.mention-option:last-child {
+    border-bottom: none;
+}
+
+.mention-option:hover {
+    background: var(--hover-bg, #f9fafb);
+}
+
+.mention-option-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--agent-icon-bg, #f3f4f6);
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.mention-option-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--agent-icon-color, #6b7280);
+}
+
+.mention-option-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mention-option-name {
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+    margin-bottom: 2px;
+}
+
+.mention-option-description {
+    font-size: 13px;
+    color: var(--text-secondary, #6b7280);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--surface-color, white);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.loading-dots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.loading-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--primary-color, #3b82f6);
+    border-radius: 50%;
+    animation: loading-pulse 1.4s ease-in-out infinite both;
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes loading-pulse {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    min-width: 300px;
+    max-width: 500px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid var(--toast-color, #3b82f6);
+    transition: all 0.3s ease;
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.toast.toast-success {
+    --toast-color: #10b981;
+}
+
+.toast.toast-error {
+    --toast-color: #ef4444;
+}
+
+.toast.toast-warning {
+    --toast-color: #f59e0b;
+}
+
+.toast.toast-info {
+    --toast-color: #3b82f6;
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-primary, #111827);
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    padding: 0;
+    margin-left: 12px;
+    line-height: 1;
+}
+
+.toast-close:hover {
+    color: var(--text-primary, #111827);
+}
+
+/* Enhanced Message Styling for Collaborative Responses */
+.message.agent .message-content {
+    position: relative;
+}
+
+.message.agent.collaborative {
+    border-left: 3px solid var(--collaborative-border, #8b5cf6);
+    margin-left: 8px;
+    padding-left: 12px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .mention-suggestions {
+        max-height: 150px;
+    }
+    
+    .mention-option {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+    
+    .mention-option-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .agent-badge {
+        font-size: 11px;
+        padding: 3px 6px;
+        gap: 4px;
+    }
+    
+    .toast {
+        min-width: 280px;
+        margin-right: 12px;
+    }
+}
+
+/* Dark Theme Support */
+[data-theme="dark"] {
+    --surface-color: #1f2937;
+    --border-color: #374151;
+    --border-light: #4b5563;
+    --hover-bg: #374151;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --agent-icon-bg: #374151;
+    --agent-icon-color: #9ca3af;
+    --agent-badge-bg: rgba(139, 92, 246, 0.2);
+    --agent-badge-border: rgba(139, 92, 246, 0.3);
+    --agent-badge-text: #a78bfa;
+    --collaborative-border: #a78bfa;
+}
+
+[data-theme="dark"] .toast {
+    background: #374151;
+    color: #f9fafb;
+}
+
+[data-theme="dark"] .loading-indicator {
+    background: #374151;
+    border-color: #4b5563;
+}
