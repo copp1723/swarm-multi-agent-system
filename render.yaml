@@ -1,11 +1,13 @@
 services:
-  # Main web application
   - type: web
     name: swarm-agents-web
     env: python
     region: oregon
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python -m compileall src/
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --worker-class eventlet src.main:app
     healthCheckPath: /health
     autoDeploy: true
@@ -14,21 +16,12 @@ services:
         value: 3.11.0
       - key: FLASK_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: swarm-agents-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: swarm-agents-redis
-          property: connectionString
-      - key: SECRET_KEY
-        generateValue: true
       - key: DEBUG
         value: "False"
       - key: HOST
-        value: "0.0.0.0"
+        value: 0.0.0.0
+      - key: PORT
+        value: "10000"
       - key: API_TIMEOUT
         value: "30"
       - key: MAX_RETRIES
@@ -37,19 +30,56 @@ services:
         value: "60"
       - key: MAX_CONVERSATION_CONTEXT
         value: "20"
+      # Database configuration
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swarm-agents-db
+          property: connectionString
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "10"
+      # Redis configuration
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: swarm-agents-redis
+          property: connectionString
+      - key: REDIS_MAX_CONNECTIONS
+        value: "50"
+      # Logging and monitoring
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: SENTRY_DSN
+        value: ""
+      - key: PROMETHEUS_METRICS_PORT
+        value: "9090"
+      # Secrets: fill these on the Render dashboard after first deploy
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        value: ""
+      - key: SUPERMEMORY_API_KEY
+        value: ""
+      - key: MAILGUN_API_KEY
+        value: ""
+      - key: MAILGUN_DOMAIN
+        value: ""
+      - key: MAILGUN_WEBHOOK_SIGNING_KEY
+        value: ""
+      - key: MAILGUN_SENDING_KEY
+        value: ""
 
-  # PostgreSQL Database
-  - type: pserv
-    name: swarm-agents-db
-    env: postgresql
-    region: oregon
-    plan: starter
-    databaseName: swarm_agents
-    databaseUser: swarm_user
-
-  # Redis Cache
   - type: redis
     name: swarm-agents-redis
+    region: oregon
+    plan: starter
+    ipAllowList: []  # Only allow internal Render services
+
+databases:
+  - name: swarm-agents-db
+    databaseName: swarm_agents
+    user: swarm_agents_user
     region: oregon
     plan: starter
 
