@@ -81,5 +81,5 @@ databases:
     databaseName: swarm_agents
     user: swarm_agents_user
     region: oregon
-    plan: starter
+    plan: free  # Updated to use the new free plan instead of deprecated 'starter'
 
