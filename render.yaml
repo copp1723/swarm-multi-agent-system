@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 src.main:ap
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 src.main:app
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -36,7 +36,7 @@ services:
           type: redis
           name: swarm-agents-redis
           property: connectionString
-      # Fill these in via Render dashboard for security
+      # Secrets: fill these on the Render dashboard after first deploy
       - key: SECRET_KEY
         value: ""
       - key: OPENROUTER_API_KEY
