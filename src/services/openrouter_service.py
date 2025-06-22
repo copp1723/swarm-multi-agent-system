@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Generator, Iterator
 import requests
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import ModelError, ValidationError
 from src.services.base_service import BaseService, handle_service_errors
 
@@ -63,6 +63,8 @@ class OpenRouterService(BaseService):
 
     def __init__(self):
         super().__init__("OpenRouter")
+        # Get flexible configuration
+        config = get_config()
         self.base_url = "https://openrouter.ai/api/v1"
         self.headers = {
             "Authorization": f"Bearer {config.api.openrouter_api_key}",

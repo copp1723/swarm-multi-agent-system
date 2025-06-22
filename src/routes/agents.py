@@ -7,13 +7,16 @@ from typing import Any, Dict
 
 from flask import Blueprint, jsonify, request
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import AgentNotFoundError, SwarmException, ValidationError
 from src.services.agent_service import AgentService
 from src.services.openrouter_service import OpenRouterService
 from src.services.supermemory_service import SupermemoryService
 
 logger = logging.getLogger(__name__)
+
+# Get flexible configuration
+config = get_config()
 
 # Initialize services
 openrouter_service = OpenRouterService()

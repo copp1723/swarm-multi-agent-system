@@ -6,19 +6,31 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import ServiceError, SwarmException
 from src.services.mailgun_service import EmailMessage, MailgunService
 from src.utils.response_helpers import error_response, success_response
 
 logger = logging.getLogger(__name__)
 
-# Initialize Mailgun service
-mailgun_service = MailgunService(
-    api_key=config.mailgun_api_key,
-    domain=config.mailgun_domain,
-    webhook_signing_key=config.mailgun_webhook_signing_key,
-)
+# Get flexible configuration
+config = get_config()
+
+# Initialize Mailgun service if API key is available
+mailgun_service = None
+if config.api.mailgun_api_key and config.api.mailgun_domain:
+    try:
+        mailgun_service = MailgunService(
+            api_key=config.api.mailgun_api_key,
+            domain=config.api.mailgun_domain,
+            webhook_signing_key=config.api.mailgun_webhook_signing_key,
+        )
+        logger.info("Mailgun service initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Mailgun service: {e}")
+        mailgun_service = None
+else:
+    logger.warning("Mailgun service not configured - email features disabled")
 
 email_bp = Blueprint("email", __name__)
 

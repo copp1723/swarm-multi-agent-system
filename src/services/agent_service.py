@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import AgentNotFoundError, ValidationError
 from src.services.openrouter_service import ChatMessage, ChatResponse, OpenRouterService
 from src.services.supermemory_service import SupermemoryService

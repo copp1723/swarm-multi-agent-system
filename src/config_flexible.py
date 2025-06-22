@@ -78,6 +78,8 @@ class APIConfig:
     mailgun_webhook_signing_key: Optional[str] = None
     rate_limit_per_minute: int = 60
     cors_origins: List[str] = field(default_factory=lambda: ["*"])
+    api_timeout: int = 30
+    max_retries: int = 3
 
 
 class FlexibleConfig:
@@ -157,6 +159,8 @@ class FlexibleConfig:
             mailgun_webhook_signing_key=os.getenv("MAILGUN_WEBHOOK_SIGNING_KEY"),
             rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
             cors_origins=cors_origins,
+            api_timeout=int(os.getenv("API_TIMEOUT", "30")),
+            max_retries=int(os.getenv("MAX_RETRIES", "3")),
         )
 
     def _initialize_services(self):
@@ -164,182 +168,92 @@ class FlexibleConfig:
         # OpenRouter service
         self.services["openrouter"] = ServiceConfig(
             name="OpenRouter",
-            required=True,  # Core functionality
+            required=True,
             enabled=bool(self.api.openrouter_api_key),
-            config={
-                "api_key": self.api.openrouter_api_key,
-                "base_url": "https://openrouter.ai/api/v1",
-            },
+            config={"api_key": self.api.openrouter_api_key},
         )
 
         # Supermemory service
         self.services["supermemory"] = ServiceConfig(
             name="Supermemory",
-            required=False,  # Optional - system can work without persistent memory
+            required=False,
             enabled=bool(self.api.supermemory_api_key),
-            config={
-                "api_key": self.api.supermemory_api_key,
-                "base_url": os.getenv("SUPERMEMORY_BASE_URL", "https://api.supermemory.ai"),
-            },
+            config={"api_key": self.api.supermemory_api_key},
         )
 
         # Mailgun service
         self.services["mailgun"] = ServiceConfig(
             name="Mailgun",
-            required=False,  # Optional - system can work without email
+            required=False,
             enabled=bool(self.api.mailgun_api_key and self.api.mailgun_domain),
             config={
                 "api_key": self.api.mailgun_api_key,
                 "domain": self.api.mailgun_domain,
                 "webhook_signing_key": self.api.mailgun_webhook_signing_key,
-                "base_url": f"https://api.mailgun.net/v3/{self.api.mailgun_domain}",
             },
         )
 
-        # MCP Filesystem service
-        self.services["mcp_filesystem"] = ServiceConfig(
-            name="MCP Filesystem",
-            required=False,  # Optional - system can work without file operations
-            enabled=True,  # Always enabled as it's internal
-            config={
-                "base_path": os.getenv("MCP_BASE_PATH", "/tmp/mcp"),
-                "max_file_size": int(os.getenv("MCP_MAX_FILE_SIZE", "10485760")),  # 10MB
-                "allowed_extensions": os.getenv(
-                    "MCP_ALLOWED_EXTENSIONS", ".txt,.md,.json,.csv,.py"
-                ).split(","),
-            },
-        )
-
-    def get_service(self, service_name: str) -> Optional[ServiceConfig]:
-        """Get service configuration"""
+    def get_service_config(self, service_name: str) -> Optional[ServiceConfig]:
+        """Get configuration for a specific service"""
         return self.services.get(service_name)
 
-    def is_service_available(self, service_name: str) -> bool:
-        """Check if service is available"""
-        service = self.get_service(service_name)
-        return service is not None and service.is_operational()
+    def is_service_enabled(self, service_name: str) -> bool:
+        """Check if a service is enabled and operational"""
+        service = self.get_service_config(service_name)
+        return service.is_operational() if service else False
 
-    def get_available_services(self) -> List[str]:
-        """Get list of available services"""
-        return [name for name, service in self.services.items() if service.is_operational()]
+    def get_enabled_services(self) -> List[str]:
+        """Get list of enabled service names"""
+        return [name for name, service in self.services.items() if service.enabled]
 
-    def get_unavailable_services(self) -> List[str]:
-        """Get list of unavailable services"""
-        return [name for name, service in self.services.items() if not service.is_operational()]
-
-    def update_service_status(
-        self, service_name: str, status: ServiceStatus, error_message: Optional[str] = None
-    ):
-        """Update service status"""
-        service = self.get_service(service_name)
-        if service:
-            service.status = status
-            service.error_message = error_message
-            logger.info(f"Service {service_name} status updated to {status.value}")
-
-    def validate_required_services(self) -> List[str]:
-        """Validate that all required services are available"""
-        missing_services = []
-
-        for name, service in self.services.items():
-            if service.required and not service.enabled:
-                missing_services.append(name)
-
-        return missing_services
-
-    def get_system_status(self) -> Dict[str, Any]:
-        """Get comprehensive system status"""
-        available_services = self.get_available_services()
-        unavailable_services = self.get_unavailable_services()
-        missing_required = self.validate_required_services()
-
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary"""
         return {
             "database": {
-                "type": "postgresql" if self.database.is_postgresql else "sqlite",
-                "url_masked": self._mask_url(self.database.url),
-            },
-            "services": {
-                "available": available_services,
-                "unavailable": unavailable_services,
-                "missing_required": missing_required,
+                "url": self.database.url,
+                "pool_size": self.database.pool_size,
+                "is_postgresql": self.database.is_postgresql,
+                "is_sqlite": self.database.is_sqlite,
             },
             "security": {
-                "jwt_configured": bool(self.security.secret_key),
-                "email_verification_required": self.security.require_email_verification,
+                "jwt_expiry_hours": self.security.jwt_expiry_hours,
+                "password_min_length": self.security.password_min_length,
+                "max_login_attempts": self.security.max_login_attempts,
+                "lockout_duration_minutes": self.security.lockout_duration_minutes,
+                "require_email_verification": self.security.require_email_verification,
             },
-            "system_health": "healthy" if not missing_required else "degraded",
-        }
-
-    def _mask_url(self, url: str) -> str:
-        """Mask sensitive parts of URL"""
-        if "://" in url:
-            protocol, rest = url.split("://", 1)
-            if "@" in rest:
-                credentials, host_part = rest.split("@", 1)
-                return f"{protocol}://***:***@{host_part}"
-        return url
-
-    def get_feature_flags(self) -> Dict[str, bool]:
-        """Get feature availability flags for frontend"""
-        return {
-            "chat_enabled": self.is_service_available("openrouter"),
-            "memory_enabled": self.is_service_available("supermemory"),
-            "email_enabled": self.is_service_available("mailgun"),
-            "file_operations_enabled": self.is_service_available("mcp_filesystem"),
-            "user_registration_enabled": True,  # Always enabled
-            "multi_user_enabled": self.database.is_postgresql,
-        }
-
-    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
-        """Convert configuration to dictionary"""
-        data = {
-            "debug": self.debug,
-            "host": self.host,
-            "port": self.port,
-            "database": {
-                "type": "postgresql" if self.database.is_postgresql else "sqlite",
-                "pool_size": self.database.pool_size,
+            "api": {
+                "rate_limit_per_minute": self.api.rate_limit_per_minute,
+                "cors_origins": self.api.cors_origins,
+                "api_timeout": self.api.api_timeout,
+                "max_retries": self.api.max_retries,
             },
             "services": {
                 name: {
-                    "name": service.name,
                     "enabled": service.enabled,
-                    "required": service.required,
                     "status": service.status.value,
-                    "error_message": service.error_message,
+                    "required": service.required,
                 }
                 for name, service in self.services.items()
             },
-            "feature_flags": self.get_feature_flags(),
-            "system_status": self.get_system_status(),
+            "debug": self.debug,
+            "port": self.port,
+            "host": self.host,
         }
-
-        if include_sensitive:
-            data["security"] = {
-                "secret_key": self.security.secret_key,
-                "jwt_expiry_hours": self.security.jwt_expiry_hours,
-            }
-            data["api"] = {
-                "openrouter_api_key": self.api.openrouter_api_key,
-                "supermemory_api_key": self.api.supermemory_api_key,
-                "mailgun_api_key": self.api.mailgun_api_key,
-            }
-
-        return data
 
 
 # Global configuration instance
-config = FlexibleConfig()
+_config_instance = None
 
 
 def get_config() -> FlexibleConfig:
-    """Get global configuration instance"""
-    return config
+    """Get the global configuration instance"""
+    global _config_instance
+    if _config_instance is None:
+        _config_instance = FlexibleConfig()
+    return _config_instance
 
 
-def reload_config():
-    """Reload configuration from environment"""
-    global config
-    config = FlexibleConfig()
-    logger.info("Configuration reloaded")
-    return config
+# For backward compatibility
+config = get_config()
+

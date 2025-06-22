@@ -322,10 +322,8 @@ def create_app(test_config=None):
 
     logger.info(f"Swarm Multi-Agent System v2.0 initialized")
     logger.info(f"Database: {'PostgreSQL' if config.database.is_postgresql else 'SQLite'}")
-    logger.info(f"Available services: {', '.join(config.get_available_services())}")
-    logger.info(
-        f"Features enabled: {', '.join([k for k, v in config.get_feature_flags().items() if v])}"
-    )
+    logger.info(f"Available services: {', '.join(config.get_enabled_services())}")
+    logger.info(f"Features enabled: user_registration_enabled")
 
     return app
 

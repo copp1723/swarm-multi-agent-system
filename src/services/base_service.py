@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Optional
 
 import requests
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import (
     AuthenticationError,
     RateLimitError,
@@ -28,12 +28,15 @@ class BaseService:
     def __init__(self, service_name: str):
         self.service_name = service_name
         self.session = requests.Session()
-        self.session.timeout = config.api_timeout
+        # Get flexible configuration
+        config = get_config()
+        self.session.timeout = getattr(config.api, 'api_timeout', 30)
+        self.max_retries = getattr(config.api, 'max_retries', 3)
 
     def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
         """Make HTTP request with proper error handling and retries"""
 
-        for attempt in range(config.max_retries):
+        for attempt in range(self.max_retries):
             try:
                 logger.info(f"Making {method} request to {url} (attempt {attempt + 1})")
 

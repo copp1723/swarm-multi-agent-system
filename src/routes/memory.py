@@ -6,7 +6,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from src.config import config
+from src.config_flexible import get_config
 from src.exceptions import ServiceError, SwarmException, ValidationError
 from src.services.supermemory_service import MemoryQuery, SupermemoryService
 from src.utils.response_helpers import create_error_response, create_success_response
@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 # Create blueprint
 memory_bp = Blueprint("memory", __name__)
+
+# Get flexible configuration
+config = get_config()
 
 # Initialize Supermemory service
 try:
