@@ -1,423 +1,451 @@
 """
-Agent management system with proper definitions and capabilities
+Agent management system with proper MCP filesystem integration
 """
 
+import json
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from src.config_flexible import get_config
-from src.exceptions import AgentNotFoundError, ValidationError
+from src.exceptions import ServiceError, SwarmException
+from src.services.base_service import BaseService, handle_service_errors
 from src.services.openrouter_service import ChatMessage, ChatResponse, OpenRouterService
 from src.services.supermemory_service import SupermemoryService
-from src.services.mcp_filesystem import MCPFilesystemService
 
 logger = logging.getLogger(__name__)
 
 
-class AgentCapability(Enum):
-    """Enumeration of agent capabilities"""
-
-    EMAIL_COMPOSITION = "email_composition"
-    EMAIL_ANALYSIS = "email_analysis"
-    WORKFLOW_AUTOMATION = "workflow_automation"
-    SCHEDULING = "scheduling"
-    TIME_MANAGEMENT = "time_management"
-    MEETING_COORDINATION = "meeting_coordination"
-    CODING = "coding"
-    DEBUGGING = "debugging"
-    ARCHITECTURE_DESIGN = "architecture_design"
-    CODE_REVIEW = "code_review"
-    TROUBLESHOOTING = "troubleshooting"
-    SYSTEM_ANALYSIS = "system_analysis"
-    ERROR_RESOLUTION = "error_resolution"
-    TASK_COORDINATION = "task_coordination"
-    GENERAL_ASSISTANCE = "general_assistance"
-    ROUTING = "routing"
-    PLANNING = "planning"
-
-
-@dataclass
-class AgentDefinition:
-    """Definition of an agent with its capabilities and configuration"""
-
-    agent_id: str
-    name: str
-    description: str
-    capabilities: List[AgentCapability]
-    system_prompt: str
-    preferred_models: List[str]
-    default_model: str
-    max_context_messages: int = 10
-    temperature: float = 0.7
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for API responses"""
-        return {
-            "agent_id": self.agent_id,
-            "name": self.name,
-            "description": self.description,
-            "capabilities": [cap.value for cap in self.capabilities],
-            "preferred_models": self.preferred_models,
-            "default_model": self.default_model,
-            "system_prompt": self.system_prompt,
-        }
-
-
-class AgentRegistry:
-    """Registry of all available agents"""
-
-    def __init__(self):
-        self._agents: Dict[str, AgentDefinition] = {}
-        self._initialize_default_agents()
-
-    def _initialize_default_agents(self):
-        """Initialize the default set of agents"""
-
-        # Email Agent
-        self.register_agent(
-            AgentDefinition(
-                agent_id="email",
-                name="Email Agent",
-                description="Specialized in professional email composition, analysis, and workflow automation",
-                capabilities=[
-                    AgentCapability.EMAIL_COMPOSITION,
-                    AgentCapability.EMAIL_ANALYSIS,
-                    AgentCapability.WORKFLOW_AUTOMATION,
-                ],
-                system_prompt="""You are an Email Agent specialized in professional email composition, analysis, and workflow automation. 
-
-Your core responsibilities:
-- Compose clear, professional emails for various business contexts
-- Analyze email content for tone, clarity, and effectiveness
-- Suggest improvements for email communication
-- Help automate email workflows and templates
-- Ensure proper email etiquette and formatting
-
-Always maintain a professional tone while being helpful and efficient. When composing emails, consider the recipient, context, and desired outcome.""",
-                preferred_models=["openai/gpt-4o", "openai/gpt-4o-mini"],
-                default_model="openai/gpt-4o",
-            )
-        )
-
-        # Calendar Agent
-        self.register_agent(
-            AgentDefinition(
-                agent_id="calendar",
-                name="Calendar Agent",
-                description="Handles scheduling, time management, and meeting coordination",
-                capabilities=[
-                    AgentCapability.SCHEDULING,
-                    AgentCapability.TIME_MANAGEMENT,
-                    AgentCapability.MEETING_COORDINATION,
-                ],
-                system_prompt="""You are a Calendar Agent specialized in scheduling, time management, and meeting coordination.
-
-Your core responsibilities:
-- Help schedule meetings and appointments efficiently
-- Resolve scheduling conflicts and find optimal meeting times
-- Provide time management advice and strategies
-- Coordinate complex multi-participant meetings
-- Suggest meeting agendas and follow-up actions
-
-Focus on efficiency, clarity, and consideration for all participants' time. Always confirm details and provide clear next steps.""",
-                preferred_models=["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet"],
-                default_model="openai/gpt-4o-mini",
-            )
-        )
-
-        # Code Agent
-        self.register_agent(
-            AgentDefinition(
-                agent_id="code",
-                name="Code Agent",
-                description="Software development, debugging, and technical implementation specialist",
-                capabilities=[
-                    AgentCapability.CODING,
-                    AgentCapability.DEBUGGING,
-                    AgentCapability.ARCHITECTURE_DESIGN,
-                    AgentCapability.CODE_REVIEW,
-                ],
-                system_prompt="""You are a Code Agent specialized in software development, debugging, and technical implementation.
-
-Your core responsibilities:
-- Write clean, efficient, and well-documented code
-- Debug complex technical issues and provide solutions
-- Design software architecture and system components
-- Review code for quality, security, and best practices
-- Explain technical concepts clearly to different audiences
-
-Focus on code quality, security, maintainability, and following best practices. Always provide clear explanations and consider the broader system context.""",
-                preferred_models=["deepseek/deepseek-r1", "openai/gpt-4o"],
-                default_model="openai/gpt-4o",
-            )
-        )
-
-        # Debug Agent
-        self.register_agent(
-            AgentDefinition(
-                agent_id="debug",
-                name="Debug Agent",
-                description="Troubleshooting, system diagnostics, and error resolution specialist",
-                capabilities=[
-                    AgentCapability.DEBUGGING,
-                    AgentCapability.TROUBLESHOOTING,
-                    AgentCapability.SYSTEM_ANALYSIS,
-                    AgentCapability.ERROR_RESOLUTION,
-                ],
-                system_prompt="""You are a Debug Agent specialized in troubleshooting, system diagnostics, and error resolution.
-
-Your core responsibilities:
-- Analyze error messages and system logs to identify root causes
-- Provide step-by-step debugging procedures
-- Suggest preventive measures to avoid future issues
-- Help optimize system performance and reliability
-- Guide users through complex troubleshooting processes
-
-Be methodical, thorough, and patient. Break down complex problems into manageable steps and always verify solutions.""",
-                preferred_models=["openai/gpt-4o", "anthropic/claude-3.5-sonnet"],
-                default_model="openai/gpt-4o",
-            )
-        )
-
-        # General Agent
-        self.register_agent(
-            AgentDefinition(
-                agent_id="general",
-                name="General Agent",
-                description="Task coordination, routing, and general assistance",
-                capabilities=[
-                    AgentCapability.TASK_COORDINATION,
-                    AgentCapability.GENERAL_ASSISTANCE,
-                    AgentCapability.ROUTING,
-                    AgentCapability.PLANNING,
-                ],
-                system_prompt="""You are a General Agent specialized in task coordination, routing, and general assistance.
-
-Your core responsibilities:
-- Coordinate tasks between different agents and systems
-- Route requests to the most appropriate specialist agents
-- Provide general assistance for various tasks
-- Help plan and organize complex multi-step projects
-- Facilitate communication and collaboration
-
-Be helpful, organized, and efficient. When tasks require specialized expertise, recommend the appropriate specialist agent while providing initial guidance.""",
-                preferred_models=["anthropic/claude-3.5-sonnet", "openai/gpt-4o"],
-                default_model="anthropic/claude-3.5-sonnet",
-            )
-        )
-
-    def register_agent(self, agent: AgentDefinition):
-        """Register a new agent"""
-        self._agents[agent.agent_id] = agent
-        logger.info(f"Registered agent: {agent.name} ({agent.agent_id})")
-
-    def get_agent(self, agent_id: str) -> AgentDefinition:
-        """Get agent by ID"""
-        if agent_id not in self._agents:
-            raise AgentNotFoundError(
-                f"Agent '{agent_id}' not found",
-                error_code="AGENT_NOT_FOUND",
-                details={"agent_id": agent_id, "available_agents": list(self._agents.keys())},
-            )
-        return self._agents[agent_id]
-
-    def list_agents(self) -> List[AgentDefinition]:
-        """Get list of all agents"""
-        return list(self._agents.values())
-
-    def get_agents_by_capability(self, capability: AgentCapability) -> List[AgentDefinition]:
-        """Get agents that have a specific capability"""
-        return [agent for agent in self._agents.values() if capability in agent.capabilities]
-
-
-class AgentService:
-    """Service for managing agent interactions with memory persistence"""
+class AgentService(BaseService):
+    """Enhanced agent service with MCP filesystem capabilities"""
 
     def __init__(
-        self, 
-        openrouter_service: OpenRouterService, 
+        self,
+        openrouter_service: OpenRouterService,
         supermemory_service: SupermemoryService = None,
-        mcp_filesystem_service: MCPFilesystemService = None
+        mcp_filesystem_service = None,
     ):
+        super().__init__("Agent")
         self.openrouter = openrouter_service
         self.supermemory = supermemory_service
         self.mcp_filesystem = mcp_filesystem_service
-        self.registry = AgentRegistry()
-
-        if not self.supermemory:
-            logger.warning("Supermemory service not provided - conversation persistence disabled")
         
-        if not self.mcp_filesystem:
-            logger.warning("MCP Filesystem service not provided - file operations disabled")
-        else:
-            logger.info("MCP Filesystem service enabled - agents can access files")
-
-    def get_agent_info(self, agent_id: str) -> Dict[str, Any]:
-        """Get agent information"""
-        agent = self.registry.get_agent(agent_id)
-        return agent.to_dict()
-
-    def list_all_agents(self) -> List[Dict[str, Any]]:
-        """Get list of all available agents"""
-        return [agent.to_dict() for agent in self.registry.list_agents()]
-
-    def chat_with_agent(
-        self,
-        agent_id: str,
-        message: str,
-        conversation_history: List[Dict[str, str]] = None,
-        model: str = None,
-    ) -> ChatResponse:
-        """Chat with a specific agent with memory persistence"""
-
-        # Validate inputs
-        if not message.strip():
-            raise ValidationError("Message cannot be empty")
-
-        # Get agent definition
-        agent = self.registry.get_agent(agent_id)
-
-        # Use specified model or agent's default
-        selected_model = model or agent.default_model
-
-        # Validate model is in agent's preferred list
-        if selected_model not in agent.preferred_models:
-            logger.warning(f"Model {selected_model} not in preferred list for agent {agent_id}")
-
-        # Get relevant context from memory if available
-        context = ""
-        if self.supermemory:
-            try:
-                context = self.supermemory.get_agent_context(
-                    agent_id=agent_id, current_message=message, context_limit=3
-                )
-            except Exception as e:
-                logger.warning(f"Failed to get context from Supermemory: {e}")
-
-        # Build message list
-        messages = [ChatMessage(role="system", content=agent.system_prompt)]
-
-        # Add MCP filesystem capabilities if available
+        # Log MCP filesystem status
         if self.mcp_filesystem:
-            filesystem_prompt = """
+            health = self.mcp_filesystem.health_check()
+            logger.info(f"✅ AgentService initialized with MCP filesystem: {health.get('status', 'unknown')}")
+        else:
+            logger.warning("⚠️ AgentService initialized without MCP filesystem")
 
-FILESYSTEM ACCESS CAPABILITIES:
-You have access to a secure filesystem through MCP (Model Context Protocol). You can:
+        # Define agent capabilities with MCP filesystem support
+        self.agents = {
+            "email_agent": {
+                "name": "Email Agent",
+                "description": "Specialized in professional email composition, analysis, and workflow automation",
+                "capabilities": ["email_composition", "email_analysis", "workflow_automation"],
+                "system_prompt": self._get_email_agent_prompt(),
+                "mcp_enabled": True,
+            },
+            "calendar_agent": {
+                "name": "Calendar Agent", 
+                "description": "Handles scheduling, time management, and meeting coordination",
+                "capabilities": ["scheduling", "time_management", "meeting_coordination"],
+                "system_prompt": self._get_calendar_agent_prompt(),
+                "mcp_enabled": True,
+            },
+            "code_agent": {
+                "name": "Code Agent",
+                "description": "Software development, debugging, and technical implementation",
+                "capabilities": ["code_generation", "debugging", "technical_analysis"],
+                "system_prompt": self._get_code_agent_prompt(),
+                "mcp_enabled": True,
+            },
+            "debug_agent": {
+                "name": "Debug Agent",
+                "description": "Troubleshooting, system diagnostics, and error resolution",
+                "capabilities": ["troubleshooting", "diagnostics", "error_resolution"],
+                "system_prompt": self._get_debug_agent_prompt(),
+                "mcp_enabled": True,
+            },
+            "general_agent": {
+                "name": "General Agent",
+                "description": "Task coordination, routing, and general assistance",
+                "capabilities": ["task_coordination", "routing", "general_assistance"],
+                "system_prompt": self._get_general_agent_prompt(),
+                "mcp_enabled": True,
+            },
+        }
 
-- READ FILES: Access and read file contents from the workspace
-- WRITE FILES: Create and modify files in the workspace  
-- LIST DIRECTORIES: Browse folder contents and file structures
-- CREATE DIRECTORIES: Make new folders for organization
-- DELETE FILES/FOLDERS: Remove files and directories when needed
-- MOVE/RENAME: Reorganize files and folders
-- COPY FILES: Duplicate files and directories
+    def _get_base_system_prompt(self) -> str:
+        """Get base system prompt with MCP filesystem capabilities"""
+        mcp_capabilities = ""
+        
+        if self.mcp_filesystem:
+            try:
+                stats = self.mcp_filesystem.get_workspace_stats()
+                mcp_capabilities = f"""
 
-IMPORTANT FILESYSTEM GUIDELINES:
-- Always use relative paths from the workspace root
-- Supported file types: .txt, .md, .json, .yaml, .csv, .log, .py, .js, .html, .css, .xml, .sql, .sh, .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx
-- Maximum file size: 10MB
-- When users ask about files or folders, you CAN access them directly
-- Provide specific file operations and show actual file contents
-- Use proper error handling and inform users of any limitations
+## 🗂️ FILESYSTEM ACCESS CAPABILITIES
 
-To perform file operations, describe what you want to do and I will execute the filesystem commands for you.
+You have access to a secure filesystem workspace for file operations:
+
+**Workspace:** {stats.get('workspace_path', '/tmp/swarm_workspace')}
+**Available Operations:**
+- Read files and directories
+- Write and create new files  
+- Create directories
+- Move and copy files
+- Delete files and directories
+- Get file information and statistics
+
+**Supported File Types:** {', '.join(stats.get('allowed_extensions', []))}
+**Max File Size:** {stats.get('max_file_size_mb', 10)}MB
+
+**Usage Guidelines:**
+- Always use relative paths within the workspace
+- Check if files exist before operations
+- Create directories as needed
+- Use appropriate file extensions
+- Handle errors gracefully
+
+**Example Operations:**
+- To read a file: "Please read the contents of 'notes.txt'"
+- To create a file: "Create a new file called 'report.md' with this content..."
+- To list directory: "Show me what files are in the 'projects' folder"
+- To organize files: "Create a folder called 'documents' and move all .pdf files there"
+
+You can perform these operations directly - no need to ask for permission.
 """
-            messages.append(ChatMessage(role="system", content=filesystem_prompt))
+        else:
+            mcp_capabilities = """
 
-        # Add context if available
-        if context:
-            messages.append(
-                ChatMessage(
-                    role="system",
-                    content=f"Relevant context from previous conversations:\n{context}",
-                )
+## ⚠️ FILESYSTEM ACCESS UNAVAILABLE
+
+Filesystem access is currently not available. You cannot read, write, or manage files directly.
+"""
+
+        return f"""You are an AI agent in a multi-agent collaboration system. You work alongside other specialized agents to help users accomplish their goals.
+
+## CORE PRINCIPLES
+- Be helpful, accurate, and professional
+- Collaborate effectively with other agents when needed
+- Provide clear, actionable responses
+- Ask clarifying questions when needed
+- Acknowledge limitations honestly
+
+## COLLABORATION
+- You can work independently or with other agents
+- Use @mention to bring other agents into conversations
+- Share relevant information between agents
+- Coordinate tasks effectively
+
+{mcp_capabilities}
+
+## MEMORY SYSTEM
+- Conversations are stored in shared memory for context
+- Previous interactions inform current responses
+- Maintain consistency across sessions
+
+Remember: You are part of a team. Focus on your specialization while being ready to collaborate.
+"""
+
+    def _get_email_agent_prompt(self) -> str:
+        """Get email agent system prompt with MCP capabilities"""
+        base_prompt = self._get_base_system_prompt()
+        return f"""{base_prompt}
+
+## EMAIL AGENT SPECIALIZATION
+
+You are the **Email Agent** - specialized in professional email composition, analysis, and workflow automation.
+
+**Your Expertise:**
+- Professional email writing and editing
+- Email template creation and management
+- Email workflow optimization
+- Communication strategy and etiquette
+- Email analytics and insights
+
+**Key Capabilities:**
+- Draft professional emails for any purpose
+- Analyze and improve existing emails
+- Create reusable email templates
+- Suggest email automation workflows
+- Provide communication best practices
+
+**File Operations for Email:**
+- Save email templates to files
+- Read and analyze email drafts
+- Create email campaign files
+- Organize email-related documents
+
+Focus on clear, professional communication and efficient email workflows.
+"""
+
+    def _get_calendar_agent_prompt(self) -> str:
+        """Get calendar agent system prompt with MCP capabilities"""
+        base_prompt = self._get_base_system_prompt()
+        return f"""{base_prompt}
+
+## CALENDAR AGENT SPECIALIZATION
+
+You are the **Calendar Agent** - specialized in scheduling, time management, and meeting coordination.
+
+**Your Expertise:**
+- Meeting scheduling and coordination
+- Calendar optimization and time blocking
+- Event planning and management
+- Time zone coordination
+- Productivity scheduling strategies
+
+**Key Capabilities:**
+- Schedule meetings and events
+- Optimize calendar layouts
+- Coordinate across time zones
+- Plan recurring events
+- Suggest productivity improvements
+
+**File Operations for Scheduling:**
+- Save meeting agendas and notes
+- Create calendar templates
+- Store scheduling preferences
+- Manage event documentation
+
+Focus on efficient time management and seamless scheduling coordination.
+"""
+
+    def _get_code_agent_prompt(self) -> str:
+        """Get code agent system prompt with MCP capabilities"""
+        base_prompt = self._get_base_system_prompt()
+        return f"""{base_prompt}
+
+## CODE AGENT SPECIALIZATION
+
+You are the **Code Agent** - specialized in software development, debugging, and technical implementation.
+
+**Your Expertise:**
+- Code generation and optimization
+- Debugging and troubleshooting
+- Architecture and design patterns
+- Code review and best practices
+- Technical documentation
+
+**Key Capabilities:**
+- Write code in multiple languages
+- Debug and fix code issues
+- Suggest improvements and optimizations
+- Create technical documentation
+- Implement software solutions
+
+**File Operations for Development:**
+- Read and analyze code files
+- Create new code files and projects
+- Save code snippets and templates
+- Organize project structures
+- Manage documentation files
+
+Focus on clean, efficient code and robust software solutions.
+"""
+
+    def _get_debug_agent_prompt(self) -> str:
+        """Get debug agent system prompt with MCP capabilities"""
+        base_prompt = self._get_base_system_prompt()
+        return f"""{base_prompt}
+
+## DEBUG AGENT SPECIALIZATION
+
+You are the **Debug Agent** - specialized in troubleshooting, system diagnostics, and error resolution.
+
+**Your Expertise:**
+- Error analysis and resolution
+- System diagnostics and monitoring
+- Performance troubleshooting
+- Log analysis and interpretation
+- Root cause analysis
+
+**Key Capabilities:**
+- Analyze error messages and logs
+- Diagnose system issues
+- Suggest debugging strategies
+- Create diagnostic procedures
+- Document solutions
+
+**File Operations for Debugging:**
+- Read log files and error reports
+- Create diagnostic scripts
+- Save troubleshooting procedures
+- Organize debugging documentation
+
+Focus on systematic problem-solving and clear diagnostic procedures.
+"""
+
+    def _get_general_agent_prompt(self) -> str:
+        """Get general agent system prompt with MCP capabilities"""
+        base_prompt = self._get_base_system_prompt()
+        return f"""{base_prompt}
+
+## GENERAL AGENT SPECIALIZATION
+
+You are the **General Agent** - specialized in task coordination, routing, and general assistance.
+
+**Your Expertise:**
+- Task coordination and management
+- Agent routing and collaboration
+- General problem-solving
+- Information synthesis
+- Project management
+
+**Key Capabilities:**
+- Coordinate multi-agent tasks
+- Route requests to appropriate agents
+- Provide general assistance
+- Synthesize information from multiple sources
+- Manage project workflows
+
+**File Operations for Coordination:**
+- Create project documentation
+- Save task lists and workflows
+- Organize shared resources
+- Manage collaboration files
+
+Focus on effective coordination and comprehensive assistance across all domains.
+"""
+
+    @handle_service_errors
+    def chat_with_agent(
+        self, agent_id: str, message: str, model: str = "openai/gpt-4o"
+    ) -> ChatResponse:
+        """Enhanced chat with agent including MCP filesystem capabilities"""
+        
+        if agent_id not in self.agents:
+            raise ServiceError(
+                f"Unknown agent: {agent_id}",
+                error_code="UNKNOWN_AGENT",
+                details={"agent_id": agent_id, "available_agents": list(self.agents.keys())},
             )
 
-        # Add conversation history (limited)
-        if conversation_history:
-            history_limit = min(len(conversation_history), agent.max_context_messages)
-            for hist_msg in conversation_history[-history_limit:]:
-                if hist_msg.get("role") and hist_msg.get("content"):
-                    messages.append(ChatMessage(role=hist_msg["role"], content=hist_msg["content"]))
-
-        # Add current message
-        messages.append(ChatMessage(role="user", content=message))
-
-        # Get response from OpenRouter
-        response = self.openrouter.chat_completion(messages, selected_model)
-
-        # Store conversation in memory if available
-        if self.supermemory and response:
+        agent_config = self.agents[agent_id]
+        
+        # Build system prompt with MCP capabilities
+        system_prompt = agent_config["system_prompt"]
+        
+        # Add current MCP status to system prompt
+        if self.mcp_filesystem and agent_config.get("mcp_enabled", False):
             try:
-                self.supermemory.store_conversation(
-                    agent_id=agent_id,
-                    user_message=message,
-                    agent_response=response.content,
-                    model_used=selected_model,
-                    metadata={"timestamp": response.created, "usage": response.usage},
-                )
-                logger.info(f"Stored conversation for agent {agent_id} in Supermemory")
+                health = self.mcp_filesystem.health_check()
+                if health.get("status") == "healthy":
+                    system_prompt += "\n\n✅ **FILESYSTEM ACCESS ACTIVE** - You can read, write, and manage files in the workspace."
+                else:
+                    system_prompt += f"\n\n⚠️ **FILESYSTEM ACCESS LIMITED** - {health.get('error', 'Unknown issue')}"
             except Exception as e:
-                logger.error(f"Failed to store conversation in Supermemory: {e}")
+                system_prompt += f"\n\n❌ **FILESYSTEM ACCESS ERROR** - {str(e)}"
+        else:
+            system_prompt += "\n\n❌ **FILESYSTEM ACCESS UNAVAILABLE** - File operations are not currently supported."
 
-        return response
-
-    def get_conversation_history(self, agent_id: str, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get conversation history for an agent"""
-        if not self.supermemory:
-            logger.warning("Supermemory service not available - returning empty history")
-            return []
-
-        try:
-            conversations = self.supermemory.get_conversation_history(agent_id, limit)
-            return [
-                {
-                    "id": conv.id,
-                    "user_message": conv.user_message,
-                    "agent_response": conv.agent_response,
-                    "timestamp": conv.timestamp,
-                    "model_used": conv.model_used,
-                }
-                for conv in conversations
-            ]
-        except Exception as e:
-            logger.error(f"Failed to get conversation history for {agent_id}: {e}")
-            return []
-
-    def clear_agent_memory(self, agent_id: str) -> bool:
-        """Clear memory for a specific agent"""
-        if not self.supermemory:
-            logger.warning("Supermemory service not available")
-            return False
+        # Prepare messages
+        messages = [
+            ChatMessage(role="system", content=system_prompt),
+            ChatMessage(role="user", content=message),
+        ]
 
         try:
-            return self.supermemory.clear_agent_memory(agent_id)
+            # Get response from OpenRouter
+            response = self.openrouter.chat_completion(
+                messages=messages,
+                model=model,
+                temperature=0.7,
+                max_tokens=2000,
+            )
+
+            logger.info(f"✅ Agent {agent_id} responded successfully (MCP: {'enabled' if self.mcp_filesystem else 'disabled'})")
+            return response
+
         except Exception as e:
-            logger.error(f"Failed to clear memory for {agent_id}: {e}")
-            return False
+            logger.error(f"❌ Agent {agent_id} chat error: {e}")
+            
+            # Return fallback response
+            fallback_content = f"I apologize, but I encountered a technical issue while processing your request. Error: {str(e)}. Please try again or contact support if the issue persists."
+            
+            return ChatResponse(
+                content=fallback_content,
+                model=model,
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                finish_reason="error"
+            )
 
-    def suggest_agent_for_task(self, task_description: str) -> List[str]:
-        """Suggest appropriate agents for a given task"""
-        # Simple keyword-based suggestion (could be enhanced with ML)
-        suggestions = []
-        task_lower = task_description.lower()
+    def get_agent_info(self, agent_id: str) -> Dict[str, Any]:
+        """Get detailed agent information including MCP status"""
+        if agent_id not in self.agents:
+            raise ServiceError(f"Unknown agent: {agent_id}", error_code="UNKNOWN_AGENT")
 
-        if any(word in task_lower for word in ["email", "message", "compose", "send"]):
-            suggestions.append("email")
+        agent_config = self.agents[agent_id].copy()
+        
+        # Add MCP filesystem status
+        if self.mcp_filesystem and agent_config.get("mcp_enabled", False):
+            try:
+                health = self.mcp_filesystem.health_check()
+                agent_config["mcp_status"] = health.get("status", "unknown")
+                agent_config["mcp_details"] = health
+            except Exception as e:
+                agent_config["mcp_status"] = "error"
+                agent_config["mcp_error"] = str(e)
+        else:
+            agent_config["mcp_status"] = "disabled"
 
-        if any(word in task_lower for word in ["schedule", "meeting", "calendar", "time"]):
-            suggestions.append("calendar")
+        return agent_config
 
-        if any(word in task_lower for word in ["code", "program", "develop", "implement"]):
-            suggestions.append("code")
+    def list_agents(self) -> Dict[str, Any]:
+        """List all available agents with MCP status"""
+        agents_info = {}
+        
+        for agent_id in self.agents:
+            agents_info[agent_id] = self.get_agent_info(agent_id)
+        
+        # Add overall MCP status
+        mcp_overall_status = "disabled"
+        if self.mcp_filesystem:
+            try:
+                health = self.mcp_filesystem.health_check()
+                mcp_overall_status = health.get("status", "unknown")
+            except:
+                mcp_overall_status = "error"
+        
+        return {
+            "agents": agents_info,
+            "total_count": len(agents_info),
+            "mcp_filesystem_status": mcp_overall_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
 
-        if any(word in task_lower for word in ["debug", "error", "fix", "troubleshoot"]):
-            suggestions.append("debug")
+    def health_check(self) -> Dict[str, Any]:
+        """Enhanced health check including MCP filesystem status"""
+        try:
+            # Test OpenRouter connection
+            test_response = self.openrouter.chat_completion(
+                messages=[ChatMessage(role="user", content="Hello")],
+                model="openai/gpt-4o-mini",
+                max_tokens=10,
+            )
+            openrouter_status = "healthy" if test_response else "unhealthy"
+        except Exception as e:
+            openrouter_status = f"error: {str(e)}"
 
-        # Always include general as fallback
-        if not suggestions:
-            suggestions.append("general")
+        # Test MCP filesystem
+        mcp_status = "disabled"
+        mcp_details = None
+        if self.mcp_filesystem:
+            try:
+                mcp_health = self.mcp_filesystem.health_check()
+                mcp_status = mcp_health.get("status", "unknown")
+                mcp_details = mcp_health
+            except Exception as e:
+                mcp_status = f"error: {str(e)}"
 
-        return suggestions
+        return {
+            "service": "agent_service",
+            "status": "healthy" if openrouter_status == "healthy" else "degraded",
+            "openrouter_status": openrouter_status,
+            "mcp_filesystem_status": mcp_status,
+            "mcp_details": mcp_details,
+            "agent_count": len(self.agents),
+            "agents": list(self.agents.keys()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }

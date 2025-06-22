@@ -129,11 +129,14 @@ def create_app(test_config=None):
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(agents_bp, url_prefix="/api/agents")
     app.register_blueprint(memory_bp, url_prefix="/api/memory")
-    app.register_blueprint(mcp_bp, url_prefix="/api/mcp")
     app.register_blueprint(email_bp, url_prefix="/api/email")
     app.register_blueprint(security_bp, url_prefix="/api/security")
     app.register_blueprint(websocket_bp, url_prefix="/api/websocket")
     app.register_blueprint(test_bp, url_prefix="/api/test")
+    
+    # Import and register MCP blueprint
+    from src.routes.mcp import mcp_bp
+    app.register_blueprint(mcp_bp)
 
     # Create database tables with retry logic for Render deployment
     with app.app_context():
