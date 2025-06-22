@@ -52,7 +52,7 @@ services:
       - key: MAILGUN_SENDING_KEY
         value: ""
 
-  - type: pserv
+  - type: database
     name: swarm-agents-db
     env: postgresql
     region: oregon
@@ -61,3 +61,6 @@ services:
     name: swarm-agents-redis
     region: oregon
     plan: starter
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
