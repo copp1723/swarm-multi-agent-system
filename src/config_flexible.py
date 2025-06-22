@@ -150,7 +150,19 @@ class FlexibleConfig:
 
     def _load_api_config(self) -> APIConfig:
         """Load API configuration"""
-        cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+        cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+        
+        # Handle CORS origins properly
+        if cors_origins_env == "*":
+            cors_origins = ["*"]
+        else:
+            cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+            
+        # If we're on Render.com, automatically add the production domain
+        render_external_url = os.getenv("RENDER_EXTERNAL_URL")
+        if render_external_url:
+            cors_origins.append(render_external_url)
+            cors_origins.append(render_external_url.replace("https://", "http://"))
 
         return APIConfig(
             openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),

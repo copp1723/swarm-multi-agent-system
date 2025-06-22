@@ -95,8 +95,27 @@ def create_app(test_config=None):
     # Enable CORS for all routes
     CORS(app, origins=config.api.cors_origins)
 
-    # Initialize SocketIO
-    socketio = SocketIO(app, cors_allowed_origins=config.api.cors_origins, 
+    # Initialize SocketIO with proper CORS handling
+    # For production, we need to handle both HTTP and WebSocket origins
+    cors_origins = config.api.cors_origins
+    if cors_origins == ["*"]:
+        # Allow all origins for development
+        socketio_cors = "*"
+    else:
+        # For production, include both http and https versions
+        socketio_cors = []
+        for origin in cors_origins:
+            socketio_cors.append(origin)
+            # Also add the production domain if not already included
+            if "swarm-multi-agent-system.onrender.com" not in origin:
+                socketio_cors.extend([
+                    "https://swarm-multi-agent-system.onrender.com",
+                    "http://swarm-multi-agent-system.onrender.com"
+                ])
+        # Remove duplicates
+        socketio_cors = list(set(socketio_cors))
+    
+    socketio = SocketIO(app, cors_allowed_origins=socketio_cors, 
                        async_mode='threading', logger=True, engineio_logger=True)
 
     # Initialize database
