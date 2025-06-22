@@ -869,12 +869,31 @@
 
             async loadAgents() {
                 try {
+                    console.log('Loading agents...');
                     const response = await fetch('/api/agents/');
                     const data = await response.json();
-                    this.agents = data.agents || [];
+                    console.log('API response:', data);
+                    
+                    // Handle the correct API response format
+                    if (data.success && data.data && data.data.agents) {
+                        this.agents = data.data.agents.map(agent => ({
+                            id: agent.agent_id,
+                            name: agent.name,
+                            description: agent.description,
+                            capabilities: agent.capabilities,
+                            default_model: agent.default_model
+                        }));
+                    } else {
+                        this.agents = [];
+                        console.warn('No agents found in API response');
+                    }
+                    
+                    console.log('Processed agents:', this.agents);
                     this.renderAgents();
                 } catch (error) {
                     console.error('Failed to load agents:', error);
+                    this.agents = [];
+                    this.renderAgents();
                 }
             }
 
