@@ -1165,7 +1165,16 @@
             }
 
             initializeWebSocket() {
-                this.socket = io('/swarm');
+                // Configure Socket.IO with better reconnection settings
+                this.socket = io('/swarm', {
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000,
+                    reconnectionDelayMax: 5000,
+                    randomizationFactor: 0.5,
+                    timeout: 20000,
+                    transports: ['polling', 'websocket'] // Start with polling then upgrade
+                });
                 
                 this.socket.on('connect', () => {
                     console.log('Connected to WebSocket');
@@ -1175,6 +1184,18 @@
                 this.socket.on('disconnect', () => {
                     console.log('Disconnected from WebSocket');
                     this.updateConnectionStatus(false);
+                });
+                
+                this.socket.on('connect_error', (error) => {
+                    console.log('Connection error:', error.message);
+                });
+                
+                this.socket.on('reconnect_attempt', () => {
+                    console.log('Attempting to reconnect...');
+                });
+                
+                this.socket.on('reconnect', (attemptNumber) => {
+                    console.log('Reconnected after', attemptNumber, 'attempts');
                 });
 
                 this.socket.on('agent_message', (data) => {
