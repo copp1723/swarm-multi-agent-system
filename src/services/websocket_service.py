@@ -267,8 +267,18 @@ class SwarmWebSocketNamespace(Namespace):
         
         logger.info(f"✅ Client connected: {user_id} (MCP: {mcp_status.get('status', 'unknown')})")
 
-    def on_send_message(self, data):
-        """Enhanced message handling with MCP filesystem support"""
+    def on_disconnect(self):
+        """Handle client disconnection"""
+        client_id = request.sid
+        if client_id in self.connected_clients:
+            user_id = self.connected_clients[client_id].get("user_id", "unknown")
+            del self.connected_clients[client_id]
+            logger.info(f"Client disconnected: {user_id} ({client_id})")
+        else:
+            logger.info(f"Client disconnected: {client_id} (already removed or not found)")
+
+    def on_user_message(self, data): # Renamed from on_send_message
+        """Enhanced message handling with MCP filesystem support, receives messages from users."""
         try:
             client_id = request.sid
             

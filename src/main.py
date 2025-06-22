@@ -13,7 +13,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-from flask_socketio import SocketIO, Namespace, emit
+from flask_socketio import SocketIO, emit # Namespace is no longer used directly here
 
 # Import configuration
 from src.config_flexible import get_config
@@ -36,7 +36,7 @@ from src.routes.test import test_bp
 # Import services
 from src.services.auth_service import AuthenticationService
 from src.services.security_service import SecurityHardeningService
-from src.services.websocket_service import WebSocketService
+from src.services.websocket_service import WebSocketService, SwarmWebSocketNamespace # Import the namespace
 
 # Configure logging
 logging.basicConfig(
@@ -120,6 +120,7 @@ def create_app(test_config=None):
     websocket_service = WebSocketService(app, mcp_filesystem_service=mcp_filesystem_service)
 
     # Store services in app context
+    app.websocket_service = websocket_service # Ensure this is before SwarmWebSocketNamespace instantiation
     app.auth_service = auth_service
     app.security_service = security_service
     app.websocket_service = websocket_service
@@ -368,64 +369,68 @@ def create_app(test_config=None):
     return app, socketio
 
 
-class SwarmNamespace(Namespace):
-    """Socket.IO namespace for Swarm multi-agent system"""
+# class SwarmNamespace(Namespace):
+#     """Socket.IO namespace for Swarm multi-agent system"""
     
-    def on_connect(self):
-        """Handle client connection"""
-        logger.info(f"Client connected: {request.sid}")
-        emit('status', {'message': 'Connected to Swarm', 'connected': True})
+#     def on_connect(self):
+#         """Handle client connection"""
+#         logger.info(f"Client connected: {request.sid}")
+#         emit('status', {'message': 'Connected to Swarm', 'connected': True})
     
-    def on_disconnect(self):
-        """Handle client disconnection"""
-        logger.info(f"Client disconnected: {request.sid}")
+#     def on_disconnect(self):
+#         """Handle client disconnection"""
+#         logger.info(f"Client disconnected: {request.sid}")
     
-    def on_user_message(self, data):
-        """Handle user messages to agents"""
-        try:
-            logger.info(f"Received message: {data}")
+#     def on_user_message(self, data):
+#         """Handle user messages to agents"""
+#         try:
+#             logger.info(f"Received message: {data}")
             
-            # Get agent service from app context
-            from flask import current_app
-            agent_service = current_app.websocket_service.agent_service
+#             # Get agent service from app context
+#             from flask import current_app
+#             agent_service = current_app.websocket_service.agent_service # This assumes websocket_service has agent_service
             
-            # Extract message data
-            message = data.get('message', '')
-            agent_id = data.get('agent_id', 'general_agent')
-            model = data.get('model', 'openai/gpt-4o')
+#             # Extract message data
+#             message = data.get('message', '')
+#             agent_id = data.get('agent_id', 'general_agent')
+#             model = data.get('model', 'openai/gpt-4o')
             
-            if not message:
-                emit('error', {'message': 'Message is required'})
-                return
+#             if not message:
+#                 emit('error', {'message': 'Message is required'})
+#                 return
             
-            # Send typing indicator
-            emit('agent_typing', {'agent_id': agent_id, 'typing': True})
+#             # Send typing indicator
+#             emit('agent_typing', {'agent_id': agent_id, 'typing': True})
             
-            # Get agent response
-            response = agent_service.chat_with_agent(agent_id, message, model)
+#             # Get agent response
+#             # Ensure agent_service is correctly initialized and has chat_with_agent
+#             response = agent_service.chat_with_agent(agent_id, message, model)
             
-            # Send response back to client
-            emit('agent_response', {
-                'agent_id': agent_id,
-                'message': response.content,
-                'model': response.model,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            })
+#             # Send response back to client
+#             emit('agent_response', {
+#                 'agent_id': agent_id,
+#                 'message': response.content,
+#                 'model': response.model,
+#                 'timestamp': datetime.now(timezone.utc).isoformat()
+#             })
             
-            # Stop typing indicator
-            emit('agent_typing', {'agent_id': agent_id, 'typing': False})
+#             # Stop typing indicator
+#             emit('agent_typing', {'agent_id': agent_id, 'typing': False})
             
-        except Exception as e:
-            logger.error(f"Error handling user message: {e}")
-            emit('error', {'message': f'Error processing message: {str(e)}'})
-            emit('agent_typing', {'agent_id': agent_id, 'typing': False})
+#         except Exception as e:
+#             logger.error(f"Error handling user message: {e}")
+#             emit('error', {'message': f'Error processing message: {str(e)}'})
+#             # Ensure agent_id is defined for this emit
+#             if 'agent_id' not in locals(): agent_id = 'unknown_agent'
+#             emit('agent_typing', {'agent_id': agent_id, 'typing': False})
 
 
 # Create the application instance
 app, socketio = create_app()
 
-# Register the Swarm namespace
-socketio.on_namespace(SwarmNamespace('/swarm'))
+# Register the Swarm namespace using the one from websocket_service
+# Ensure app.websocket_service is set before this in create_app()
+socketio.on_namespace(SwarmWebSocketNamespace(app.websocket_service))
 
 if __name__ == "__main__":
     # Development server
