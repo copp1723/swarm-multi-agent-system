@@ -28,6 +28,26 @@
             --radius-xl: 20px;
         }
 
+        /* Dark mode color variables */
+        [data-theme="dark"] {
+            --bg-primary: #1a202c;
+            --bg-secondary: #2d3748;
+            --bg-tertiary: #374151;
+            --bg-sidebar: #2d3748;
+            --bg-chat: #1f2937;
+            --text-primary: #f7fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #a0aec0;
+            --accent-orange: #ff9a56;
+            --accent-purple: #a78bfa;
+            --accent-green: #48bb78;
+            --border-light: #4a5568;
+            --border-subtle: #374151;
+            --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.06);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -990,6 +1010,31 @@
             transform: translateY(-1px);
         }
 
+        .icon-button {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .icon-button:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+            transform: translateY(-1px);
+        }
+
+        .icon-button:active {
+            transform: translateY(0);
+        }
+
         .btn-secondary {
             background: var(--bg-tertiary);
             color: var(--text-secondary);
@@ -1052,6 +1097,186 @@
             color: var(--text-muted);
             padding: 20px;
         }
+
+        /* Search Overlay Styles */
+        .search-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+            padding-top: 100px;
+        }
+
+        .search-modal {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-large);
+            width: 600px;
+            max-width: 90vw;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+
+        .search-input-container {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 16px;
+            color: var(--text-primary);
+            padding-left: 32px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            color: var(--text-muted);
+        }
+
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .search-result-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .search-result-item.selected {
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        /* Model Customization Modal */
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .model-card {
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            border: 2px solid var(--border-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .model-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-2px);
+        }
+
+        .model-card.selected {
+            border-color: var(--accent-orange);
+            background: var(--bg-tertiary);
+        }
+
+        .model-card-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .model-card-provider {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Agent Collaboration Visualization */
+        .collaboration-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            z-index: 1500;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .collaboration-header {
+            padding: 20px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collaboration-canvas {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-node {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-light);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: move;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .agent-node:hover {
+            transform: scale(1.1);
+            border-color: var(--accent-orange);
+            box-shadow: var(--shadow-large);
+        }
+
+        .agent-node.active {
+            border-color: var(--accent-orange);
+            background: var(--bg-tertiary);
+        }
+
+        .collaboration-connection {
+            position: absolute;
+            background: var(--accent-purple);
+            height: 2px;
+            transform-origin: left center;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .collaboration-connection.active {
+            opacity: 1;
+            background: var(--accent-orange);
+            height: 3px;
+        }
     </style>
 </head>
 <body>
@@ -1086,6 +1311,20 @@
                     </div>
                 </div>
                 <div class="header-controls">
+                    <button class="icon-button" id="searchButton" title="Search (Ctrl/Cmd+K)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                    <button class="icon-button" id="collaborationButton" title="Agent Collaboration View">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M9 11a6 6 0 0 0-6 6v2h12v-2a6 6 0 0 0-6-6z"></path>
+                            <circle cx="17" cy="9" r="3"></circle>
+                            <path d="M21 15v2a4 4 0 0 1-4 4h-2"></path>
+                        </svg>
+                    </button>
                     <div class="model-selector">
                         <select class="model-dropdown" id="modelSelector">
                             <option value="openai/gpt-4o">GPT-4o</option>
@@ -1095,7 +1334,30 @@
                             <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
                             <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
                         </select>
+                        <button class="icon-button" id="modelCustomizeButton" title="Customize Models">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
+                                <path d="m20.5 7.5L16 12l4.5 4.5M3.5 7.5L8 12l-4.5 4.5"></path>
+                            </svg>
+                        </button>
                     </div>
+                    <button class="icon-button" id="darkModeToggle" title="Toggle Dark Mode">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sun-icon">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="moon-icon" style="display: none;">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                    </button>
                     <div class="connection-status">
                         <div class="connection-dot" id="connectionDot"></div>
                         <span id="connectionStatus">Connecting...</span>
@@ -1162,6 +1424,10 @@
                 this.loadAgents();
                 this.setupEventListeners();
                 this.autoResizeTextarea();
+                this.initDarkMode();
+                this.setupKeyboardShortcuts();
+                this.loadAvailableModels();
+                this.setupCollaborationView();
             }
 
             initializeWebSocket() {
@@ -1756,6 +2022,365 @@
                 const sizes = ['B', 'KB', 'MB', 'GB'];
                 const i = Math.floor(Math.log(bytes) / Math.log(k));
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            // Dark Mode functionality
+            initDarkMode() {
+                const theme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                this.updateDarkModeToggle(theme);
+                
+                const darkModeToggle = document.getElementById('darkModeToggle');
+                darkModeToggle.addEventListener('click', () => this.toggleDarkMode());
+            }
+
+            toggleDarkMode() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                this.updateDarkModeToggle(newTheme);
+            }
+
+            updateDarkModeToggle(theme) {
+                const sunIcon = document.querySelector('.sun-icon');
+                const moonIcon = document.querySelector('.moon-icon');
+                if (theme === 'dark') {
+                    sunIcon.style.display = 'none';
+                    moonIcon.style.display = 'block';
+                } else {
+                    sunIcon.style.display = 'block';
+                    moonIcon.style.display = 'none';
+                }
+            }
+
+            // Search functionality
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                        e.preventDefault();
+                        this.showSearchOverlay();
+                    }
+                    
+                    if (e.key === 'Escape') {
+                        this.closeSearchOverlay();
+                        this.closeCollaborationView();
+                    }
+                });
+
+                document.getElementById('searchButton').addEventListener('click', () => {
+                    this.showSearchOverlay();
+                });
+            }
+
+            showSearchOverlay() {
+                const overlay = document.createElement('div');
+                overlay.className = 'search-overlay';
+                overlay.id = 'searchOverlay';
+                overlay.innerHTML = `
+                    <div class="search-modal">
+                        <div class="search-input-container">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            <input type="text" class="search-input" id="searchInput" placeholder="Search agents, messages, or commands..." autofocus>
+                        </div>
+                        <div class="search-results" id="searchResults"></div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        this.closeSearchOverlay();
+                    }
+                });
+            }
+
+            closeSearchOverlay() {
+                const overlay = document.getElementById('searchOverlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+            }
+
+            handleSearch(query) {
+                const resultsContainer = document.getElementById('searchResults');
+                if (!query.trim()) {
+                    resultsContainer.innerHTML = '';
+                    return;
+                }
+
+                // Search through agents and messages
+                const results = [];
+                
+                // Search agents
+                this.agents.forEach(agent => {
+                    if (agent.name.toLowerCase().includes(query.toLowerCase()) ||
+                        agent.description.toLowerCase().includes(query.toLowerCase())) {
+                        results.push({
+                            type: 'agent',
+                            data: agent,
+                            title: agent.name,
+                            subtitle: agent.description
+                        });
+                    }
+                });
+
+                // Render results
+                if (results.length > 0) {
+                    resultsContainer.innerHTML = results.map((result, index) => `
+                        <div class="search-result-item ${index === 0 ? 'selected' : ''}" onclick="swarmUI.selectSearchResult('${result.type}', '${result.data.id}')">
+                            <div>${result.type === 'agent' ? '🤖' : '💬'} ${result.title}</div>
+                            <div style="font-size: 12px; color: var(--text-muted)">${result.subtitle}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    resultsContainer.innerHTML = '<div class="empty-state">No results found</div>';
+                }
+            }
+
+            selectSearchResult(type, id) {
+                if (type === 'agent') {
+                    this.selectAgent(id);
+                }
+                this.closeSearchOverlay();
+            }
+
+            // Model customization
+            async loadAvailableModels() {
+                // Mock data for available models
+                this.availableModels = [
+                    { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+                    { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+                    { id: 'openai/gpt-4', name: 'GPT-4', provider: 'OpenAI' },
+                    { id: 'openai/gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
+                    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+                    { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
+                    { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
+                    { id: 'google/gemini-pro', name: 'Gemini Pro', provider: 'Google' },
+                    { id: 'google/gemini-pro-vision', name: 'Gemini Pro Vision', provider: 'Google' },
+                    { id: 'google/palm-2', name: 'PaLM 2', provider: 'Google' },
+                    { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek' },
+                    { id: 'deepseek/deepseek-coder', name: 'DeepSeek Coder', provider: 'DeepSeek' },
+                    { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', provider: 'Meta' },
+                    { id: 'meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B', provider: 'Meta' },
+                    { id: 'mistral/mistral-large', name: 'Mistral Large', provider: 'Mistral AI' },
+                    { id: 'mistral/mistral-medium', name: 'Mistral Medium', provider: 'Mistral AI' },
+                    { id: 'cohere/command-r-plus', name: 'Command R+', provider: 'Cohere' },
+                    { id: 'cohere/command-r', name: 'Command R', provider: 'Cohere' },
+                    { id: 'ai21/jurassic-2-ultra', name: 'Jurassic-2 Ultra', provider: 'AI21' },
+                    { id: 'ai21/jurassic-2-mid', name: 'Jurassic-2 Mid', provider: 'AI21' }
+                ];
+
+                // Load saved model preferences
+                const savedModels = JSON.parse(localStorage.getItem('selectedModels') || '[]');
+                this.selectedModels = savedModels.length > 0 ? savedModels : [
+                    'openai/gpt-4o',
+                    'anthropic/claude-3.5-sonnet',
+                    'deepseek/deepseek-chat',
+                    'google/gemini-pro',
+                    'openai/gpt-4o-mini'
+                ];
+
+                document.getElementById('modelCustomizeButton').addEventListener('click', () => {
+                    this.showModelCustomization();
+                });
+
+                this.updateModelSelector();
+            }
+
+            showModelCustomization() {
+                const content = `
+                    <div class="model-customization">
+                        <p style="margin-bottom: 16px; color: var(--text-secondary)">Select up to 5 models to appear in your quick selection dropdown:</p>
+                        <div class="model-grid" id="modelGrid">
+                            ${this.availableModels.map(model => `
+                                <div class="model-card ${this.selectedModels.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
+                                    <div class="model-card-name">${model.name}</div>
+                                    <div class="model-card-provider">${model.provider}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px;">
+                            <button class="btn-secondary" onclick="document.querySelector('.modal-overlay').remove()">Cancel</button>
+                            <button class="btn-primary" onclick="swarmUI.saveModelSelection()">Save Selection</button>
+                        </div>
+                    </div>
+                `;
+                
+                this.showModal('Customize Model Selection', content);
+
+                // Add click handlers to model cards
+                document.querySelectorAll('.model-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const modelId = card.dataset.modelId;
+                        if (card.classList.contains('selected')) {
+                            card.classList.remove('selected');
+                            this.selectedModels = this.selectedModels.filter(id => id !== modelId);
+                        } else if (this.selectedModels.length < 5) {
+                            card.classList.add('selected');
+                            this.selectedModels.push(modelId);
+                        }
+                    });
+                });
+            }
+
+            saveModelSelection() {
+                localStorage.setItem('selectedModels', JSON.stringify(this.selectedModels));
+                this.updateModelSelector();
+                document.querySelector('.modal-overlay').remove();
+            }
+
+            updateModelSelector() {
+                const modelSelector = document.getElementById('modelSelector');
+                modelSelector.innerHTML = this.selectedModels.map(modelId => {
+                    const model = this.availableModels.find(m => m.id === modelId);
+                    return model ? `<option value="${model.id}">${model.name}</option>` : '';
+                }).join('');
+            }
+
+            // Agent Collaboration Visualization
+            setupCollaborationView() {
+                document.getElementById('collaborationButton').addEventListener('click', () => {
+                    this.showCollaborationView();
+                });
+            }
+
+            showCollaborationView() {
+                const view = document.createElement('div');
+                view.className = 'collaboration-view';
+                view.id = 'collaborationView';
+                view.innerHTML = `
+                    <div class="collaboration-header">
+                        <h2>Agent Collaboration Network</h2>
+                        <button class="btn-secondary" onclick="swarmUI.closeCollaborationView()">Close</button>
+                    </div>
+                    <div class="collaboration-canvas" id="collaborationCanvas"></div>
+                `;
+                document.body.appendChild(view);
+
+                this.initializeCollaborationCanvas();
+            }
+
+            closeCollaborationView() {
+                const view = document.getElementById('collaborationView');
+                if (view) {
+                    view.remove();
+                }
+            }
+
+            initializeCollaborationCanvas() {
+                const canvas = document.getElementById('collaborationCanvas');
+                const rect = canvas.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const radius = 200;
+
+                // Position agents in a circle
+                this.agents.forEach((agent, index) => {
+                    const angle = (index * 2 * Math.PI) / this.agents.length;
+                    const x = centerX + radius * Math.cos(angle) - 60;
+                    const y = centerY + radius * Math.sin(angle) - 60;
+
+                    const node = document.createElement('div');
+                    node.className = 'agent-node';
+                    node.id = `node-${agent.id}`;
+                    node.style.left = `${x}px`;
+                    node.style.top = `${y}px`;
+                    node.innerHTML = `
+                        <div style="font-size: 32px;">${this.getAgentIcon(agent.id)}</div>
+                        <div style="font-size: 12px; margin-top: 8px; font-weight: 600;">${agent.name}</div>
+                    `;
+                    
+                    canvas.appendChild(node);
+
+                    // Make nodes draggable
+                    this.makeNodeDraggable(node);
+                });
+
+                // Draw connections (example)
+                this.drawConnection('email', 'calendar');
+                this.drawConnection('code', 'debug');
+            }
+
+            makeNodeDraggable(node) {
+                let isDragging = false;
+                let startX, startY, initialX, initialY;
+
+                node.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialX = node.offsetLeft;
+                    initialY = node.offsetTop;
+                    node.style.cursor = 'grabbing';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    node.style.left = `${initialX + dx}px`;
+                    node.style.top = `${initialY + dy}px`;
+                    this.updateConnections();
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                    node.style.cursor = 'move';
+                });
+            }
+
+            drawConnection(fromId, toId) {
+                const canvas = document.getElementById('collaborationCanvas');
+                const fromNode = document.getElementById(`node-${fromId}`);
+                const toNode = document.getElementById(`node-${toId}`);
+                
+                if (!fromNode || !toNode) return;
+
+                const connection = document.createElement('div');
+                connection.className = 'collaboration-connection';
+                connection.id = `connection-${fromId}-${toId}`;
+                canvas.appendChild(connection);
+
+                this.updateConnection(connection, fromNode, toNode);
+            }
+
+            updateConnection(connection, fromNode, toNode) {
+                const fromRect = fromNode.getBoundingClientRect();
+                const toRect = toNode.getBoundingClientRect();
+                const canvasRect = document.getElementById('collaborationCanvas').getBoundingClientRect();
+
+                const fromX = fromRect.left + fromRect.width / 2 - canvasRect.left;
+                const fromY = fromRect.top + fromRect.height / 2 - canvasRect.top;
+                const toX = toRect.left + toRect.width / 2 - canvasRect.left;
+                const toY = toRect.top + toRect.height / 2 - canvasRect.top;
+
+                const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+                const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
+
+                connection.style.width = `${length}px`;
+                connection.style.left = `${fromX}px`;
+                connection.style.top = `${fromY}px`;
+                connection.style.transform = `rotate(${angle}deg)`;
+            }
+
+            updateConnections() {
+                // Update all connections when nodes are moved
+                const connections = document.querySelectorAll('.collaboration-connection');
+                connections.forEach(connection => {
+                    const [, fromId, toId] = connection.id.split('-');
+                    const fromNode = document.getElementById(`node-${fromId}`);
+                    const toNode = document.getElementById(`node-${toId}`);
+                    if (fromNode && toNode) {
+                        this.updateConnection(connection, fromNode, toNode);
+                    }
+                });
             }
         }
 
