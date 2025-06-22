@@ -52,11 +52,6 @@ services:
       - key: MAILGUN_SENDING_KEY
         value: ""
 
-  - name: swarm-agents-db
-    databaseName: swarm_agents
-    user: swarm_user
-    region: oregon
-    plan: starter
   - type: redis
     name: swarm-agents-redis
     region: oregon
@@ -64,3 +59,10 @@ services:
     ipAllowList:
       - source: 0.0.0.0/0
         description: everywhere
+
+databases:
+  - name: swarm-agents-db
+    databaseName: swarm_agents
+    user: swarm_user
+    region: oregon
+    plan: basic-256
