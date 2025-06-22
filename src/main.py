@@ -30,6 +30,7 @@ from src.routes.mcp import mcp_bp
 from src.routes.memory import memory_bp
 from src.routes.security import security_bp
 from src.routes.websocket import websocket_bp, init_websocket_routes
+from src.routes.test import test_bp
 
 # Import services
 from src.services.auth_service import AuthenticationService
@@ -124,6 +125,7 @@ def create_app(test_config=None):
     app.register_blueprint(email_bp, url_prefix="/api/email")
     app.register_blueprint(security_bp, url_prefix="/api/security")
     app.register_blueprint(websocket_bp, url_prefix="/api/websocket")
+    app.register_blueprint(test_bp, url_prefix="/api/test")
 
     # Create database tables with retry logic for Render deployment
     with app.app_context():
