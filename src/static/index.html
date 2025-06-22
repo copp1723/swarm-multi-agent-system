@@ -1563,6 +1563,8 @@
                 this.messages = [];
                 this.isStreaming = false;
                 this.currentStreamingMessage = null;
+                this.selectedModels = [];
+                this.availableModels = [];
                 this.init();
             }
 
@@ -1579,6 +1581,7 @@
 
             initializeWebSocket() {
                 // Configure Socket.IO with better reconnection settings
+                // Connect to the /swarm namespace as configured on the server
                 this.socket = io('/swarm', {
                     reconnection: true,
                     reconnectionAttempts: 5,
@@ -1586,12 +1589,19 @@
                     reconnectionDelayMax: 5000,
                     randomizationFactor: 0.5,
                     timeout: 20000,
-                    transports: ['polling', 'websocket'] // Start with polling then upgrade
+                    transports: ['websocket', 'polling'], // Try websocket first
+                    auth: {
+                        user_id: localStorage.getItem('user_id') || 'anonymous_' + Math.random().toString(36).substr(2, 9)
+                    }
                 });
                 
                 this.socket.on('connect', () => {
                     console.log('Connected to WebSocket');
                     this.updateConnectionStatus(true);
+                    // Re-subscribe to current agent if any
+                    if (this.currentAgent) {
+                        this.socket.emit('subscribe_agent', { agent_id: this.currentAgent.id });
+                    }
                 });
 
                 this.socket.on('disconnect', () => {
@@ -1730,9 +1740,28 @@
 
                 this.currentAgent = this.agents.find(agent => agent.id === agentId);
                 if (this.currentAgent) {
-                    document.getElementById('chatTitle').textContent = this.currentAgent.name;
-                    document.getElementById('welcomeState').style.display = 'none';
-                    document.getElementById('chatInputContainer').style.display = 'block';
+                    // Check if elements exist before accessing them
+                    const chatTitle = document.getElementById('chatTitle');
+                    const welcomeState = document.getElementById('welcomeState');
+                    const chatInputContainer = document.getElementById('chatInputContainer');
+                    
+                    if (chatTitle) {
+                        chatTitle.textContent = this.currentAgent.name;
+                    } else {
+                        console.error('chatTitle element not found');
+                    }
+                    
+                    if (welcomeState) {
+                        welcomeState.style.display = 'none';
+                    } else {
+                        console.error('welcomeState element not found');
+                    }
+                    
+                    if (chatInputContainer) {
+                        chatInputContainer.style.display = 'block';
+                    } else {
+                        console.error('chatInputContainer element not found');
+                    }
                     
                     // Clear messages and show agent greeting
                     this.clearMessages();
@@ -1756,7 +1785,20 @@
                 const chatInput = document.getElementById('chatInput');
                 const sendButton = document.getElementById('sendButton');
 
-                sendButton.onclick = () => this.sendMessage();
+                // Ensure sendButton exists and bind the click handler properly
+                if (sendButton) {
+                    sendButton.onclick = (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    };
+                    // Also add event listener as backup
+                    sendButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.sendMessage();
+                    });
+                } else {
+                    console.error('Send button not found');
+                }
                 
                 chatInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1778,9 +1820,21 @@
 
             sendMessage() {
                 const chatInput = document.getElementById('chatInput');
+                if (!chatInput) {
+                    console.error('Chat input element not found');
+                    return;
+                }
+                
                 const message = chatInput.value.trim();
                 
                 if (!message || !this.currentAgent || this.isStreaming) return;
+                
+                // Check socket connection
+                if (!this.socket || !this.socket.connected) {
+                    this.showNotification('Not connected to server. Please wait...', 'error');
+                    console.error('Socket not connected');
+                    return;
+                }
 
                 // Check for @mentions
                 const mentionedAgents = this.parseMentions(message);
@@ -1788,8 +1842,9 @@
                 // Add user message to chat
                 this.addMessage(message, 'user');
                 
-                // Get selected model
-                const selectedModel = document.getElementById('modelSelector').value;
+                // Get selected model with fallback
+                const modelSelector = document.getElementById('modelSelector');
+                const selectedModel = modelSelector ? modelSelector.value : 'openai/gpt-4o';
                 
                 if (mentionedAgents.length > 0) {
                     // Multi-agent collaboration
@@ -2584,6 +2639,9 @@
                     'google/gemini-2.5-pro',
                     'qwen/qwen-coder'
                 ];
+                
+                // Update the model selector dropdown
+                this.updateModelSelector();
 
                 document.getElementById('modelCustomizeButton').addEventListener('click', () => {
                     this.showModelCustomization();
@@ -2636,10 +2694,24 @@
 
             updateModelSelector() {
                 const modelSelector = document.getElementById('modelSelector');
-                modelSelector.innerHTML = this.selectedModels.map(modelId => {
-                    const model = this.availableModels.find(m => m.id === modelId);
-                    return model ? `<option value="${model.id}">${model.name}</option>` : '';
-                }).join('');
+                if (!modelSelector) {
+                    console.error('Model selector element not found');
+                    return;
+                }
+                
+                // Ensure we have models to display
+                if (this.selectedModels && this.selectedModels.length > 0) {
+                    modelSelector.innerHTML = this.selectedModels.map(modelId => {
+                        const model = this.availableModels.find(m => m.id === modelId);
+                        return model ? `<option value="${model.id}">${model.name}</option>` : '';
+                    }).join('');
+                } else if (this.availableModels && this.availableModels.length > 0) {
+                    // Default to showing first 3 available models if none selected
+                    const defaultModels = this.availableModels.slice(0, 3);
+                    modelSelector.innerHTML = defaultModels.map(model => 
+                        `<option value="${model.id}">${model.name}</option>`
+                    ).join('');
+                }
             }
 
             // Agent Collaboration Visualization
@@ -2740,8 +2812,9 @@
                 // Show collaboration indicator
                 this.addCollaborationMessage(`🤝 Collaborating with ${mentionedAgents.map(a => a.name).join(', ')}...`, 'system');
                 
-                // Get selected model
-                const selectedModel = document.getElementById('modelSelector').value;
+                // Get selected model with fallback
+                const modelSelector = document.getElementById('modelSelector');
+                const selectedModel = modelSelector ? modelSelector.value : 'openai/gpt-4o';
                 
                 // Send to collaboration endpoint
                 try {
