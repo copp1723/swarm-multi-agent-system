@@ -64,9 +64,9 @@ def create_success_response(data: Any, message: str = None) -> Dict[str, Any]:
 def list_agents():
     """Get list of all available agents"""
     try:
-        agents = agent_service.list_all_agents()
+        agents_data = agent_service.list_agents()
         return jsonify(
-            create_success_response({"agents": agents}, f"Retrieved {len(agents)} agents")
+            create_success_response(agents_data, f"Retrieved {agents_data.get('total_count', 0)} agents")
         )
     except SwarmException as e:
         logger.error(f"Error listing agents: {e}")
