@@ -52,8 +52,9 @@ services:
       - key: MAILGUN_SENDING_KEY
         value: ""
 
-  - type: pserv
-    name: swarm-agents-db
+  - name: swarm-agents-db
+    databaseName: swarm_agents
+    user: swarm_user
     region: oregon
     plan: starter
   - type: redis
