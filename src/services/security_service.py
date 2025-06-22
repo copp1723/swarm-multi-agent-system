@@ -6,6 +6,7 @@ import hashlib
 import ipaddress
 import logging
 import re
+import threading # Import threading
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -13,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import current_app, g, jsonify, request
+from flask import current_app, g, request
 
-from src.exceptions import SwarmException
+from src.exceptions import SwarmException, RateLimitException # RateLimitException added
 from src.services.base_service import BaseService, handle_service_errors
 
 logger = logging.getLogger(__name__)
@@ -77,11 +78,15 @@ class SecurityHardeningService(BaseService):
 
         # Rate limiting storage (in production, use Redis)
         self.rate_limit_storage = defaultdict(lambda: defaultdict(deque))
+        self.rate_limit_lock = threading.Lock()
+
         self.blocked_ips = set()
-        self.allowed_ips = set()
+        self.allowed_ips = set() # Not currently used for modification but good to group
+        self.ip_rules_lock = threading.Lock()
 
         # Security events storage (in production, use database)
         self.security_events = deque(maxlen=10000)
+        self.events_lock = threading.Lock()
 
         # Rate limiting rules
         self.rate_limit_rules = {
@@ -148,23 +153,24 @@ class SecurityHardeningService(BaseService):
         rule = self.rate_limit_rules.get(rule_name, self.rate_limit_rules["default"])
         current_time = time.time()
 
-        # Get client's request history
-        client_requests = self.rate_limit_storage[client_id]
-        minute_requests = client_requests["minute"]
-        hour_requests = client_requests["hour"]
+        with self.rate_limit_lock:
+            # Get client's request history
+            client_requests = self.rate_limit_storage[client_id] # defaultdict handles creation
+            minute_requests = client_requests["minute"]
+            hour_requests = client_requests["hour"]
 
-        # Clean old requests
-        minute_cutoff = current_time - 60
-        hour_cutoff = current_time - 3600
+            # Clean old requests
+            minute_cutoff = current_time - 60
+            hour_cutoff = current_time - 3600
 
-        while minute_requests and minute_requests[0] < minute_cutoff:
-            minute_requests.popleft()
+            while minute_requests and minute_requests[0] < minute_cutoff:
+                minute_requests.popleft()
 
-        while hour_requests and hour_requests[0] < hour_cutoff:
-            hour_requests.popleft()
+            while hour_requests and hour_requests[0] < hour_cutoff:
+                hour_requests.popleft()
 
-        # Check limits
-        minute_count = len(minute_requests)
+            # Check limits
+            minute_count = len(minute_requests)
         hour_count = len(hour_requests)
 
         # Check burst limit (requests in last 10 seconds)
@@ -207,7 +213,7 @@ class SecurityHardeningService(BaseService):
 
             return False, rate_limit_info
 
-        # Record this request
+        # Record this request (still within the lock)
         minute_requests.append(current_time)
         hour_requests.append(current_time)
 
@@ -311,7 +317,8 @@ class SecurityHardeningService(BaseService):
             severity=severity,
         )
 
-        self.security_events.append(event)
+        with self.events_lock:
+            self.security_events.append(event)
 
         # Log to application logger
         log_level = {
@@ -325,13 +332,15 @@ class SecurityHardeningService(BaseService):
 
     def check_ip_blocked(self, ip_address: str) -> bool:
         """Check if IP address is blocked"""
-        return ip_address in self.blocked_ips
+        with self.ip_rules_lock: # Though 'in' on a set is atomic, locking for consistency if other ops are added
+            return ip_address in self.blocked_ips
 
     def block_ip(self, ip_address: str, reason: str = "Security violation"):
         """Block an IP address"""
-        self.blocked_ips.add(ip_address)
+        with self.ip_rules_lock:
+            self.blocked_ips.add(ip_address)
 
-        self.log_security_event(
+        self.log_security_event( # log_security_event handles its own lock
             event_type="ip_blocked",
             user_id=None,
             ip_address=ip_address,
@@ -340,6 +349,26 @@ class SecurityHardeningService(BaseService):
             details={"reason": reason},
             severity="high",
         )
+
+    def unblock_ip(self, ip_address: str) -> bool:
+        """Unblock an IP address. Returns True if IP was unblocked, False otherwise."""
+        with self.ip_rules_lock:
+            if ip_address in self.blocked_ips:
+                self.blocked_ips.remove(ip_address)
+                # Log the unblock event (log_security_event handles its own lock)
+                # User ID and other request details might not be available here directly
+                # If called from a route, they could be passed in.
+                self.log_security_event(
+                    event_type="ip_unblocked",
+                    user_id=None, # Or get from current request if available
+                    ip_address="internal", # Or the admin's IP if available
+                    user_agent="internal_service_call",
+                    endpoint="SecurityService.unblock_ip",
+                    details={"unblocked_ip": ip_address, "reason": "Admin action"},
+                    severity="medium",
+                )
+                return True
+            return False
 
     def get_security_headers(self) -> Dict[str, str]:
         """Get security headers to add to responses"""
@@ -356,9 +385,13 @@ class SecurityHardeningService(BaseService):
         self, limit: int = 100, severity: Optional[str] = None
     ) -> List[SecurityEvent]:
         """Get recent security events"""
-        events = list(self.security_events)
+        with self.events_lock:
+            # Creating a list from deque is generally safe, but to avoid any potential
+            # issues if the deque is extremely large and modified during copying,
+            # it's safer to lock.
+            events = list(self.security_events)
 
-        if severity:
+        if severity: # Filtering can be done outside the lock
             events = [e for e in events if e.severity == severity]
 
         # Sort by timestamp (most recent first)
@@ -379,12 +412,17 @@ def rate_limit(rule_name: str = "default"):
             allowed, rate_info = security_service.check_rate_limit(request, rule_name)
 
             if not allowed:
-                response = jsonify({"error": "Rate limit exceeded", "rate_limit": rate_info})
-                response.status_code = 429
-                response.headers["Retry-After"] = str(rate_info["reset_time"] - int(time.time()))
-                return response
+                # Use RateLimitException
+                raise RateLimitException(
+                    message="Rate limit exceeded",
+                    details={"rate_limit": rate_info},
+                    retry_after=int(rate_info["reset_time"] - int(time.time()))
+                )
 
             # Add rate limit info to response headers
+            # This part needs to be handled carefully if f() raises an exception.
+            # The response object might not be standard Flask response if an exception occurs.
+            # However, if f() completes successfully, this is fine.
             response = f(*args, **kwargs)
             if hasattr(response, "headers"):
                 response.headers["X-RateLimit-Limit"] = str(rate_info["limits"]["minute"])
@@ -407,11 +445,14 @@ def validate_json(validation_rules: List[ValidationRule]):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not request.is_json:
-                return jsonify({"error": "JSON payload required"}), 400
+                raise SwarmException("JSON payload required", "JSON_PAYLOAD_REQUIRED", status_code=400)
 
-            data = request.get_json()
-            if not data:
-                return jsonify({"error": "Invalid JSON payload"}), 400
+            try:
+                data = request.get_json()
+                if data is None: # Covers empty JSON body like null or if get_json() returns None on error
+                    raise SwarmException("Invalid JSON payload: body is null or unparsable", "JSON_INVALID", status_code=400)
+            except Exception as e: # Catches errors from get_json() itself if not silent
+                raise SwarmException(f"Invalid JSON payload: {str(e)}", "JSON_PARSE_ERROR", status_code=400)
 
             security_service = current_app.security_service
 
@@ -422,7 +463,7 @@ def validate_json(validation_rules: List[ValidationRule]):
             is_valid, errors = security_service.validate_input(data, validation_rules)
 
             if not is_valid:
-                return jsonify({"error": "Validation failed", "details": errors}), 400
+                raise SwarmException("Validation failed", "VALIDATION_FAILED", details={"errors": errors}, status_code=400)
 
             # Store sanitized data for use in route
             g.validated_data = data
@@ -472,8 +513,7 @@ def block_suspicious_ips(f):
                 details={},
                 severity="high",
             )
-
-            return jsonify({"error": "Access denied"}), 403
+            raise SwarmException("Access denied", "BLOCKED_IP", status_code=403)
 
         return f(*args, **kwargs)
 

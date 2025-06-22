@@ -12,24 +12,16 @@ def create_success_response(data: Any, message: str = "Success") -> Dict[str, An
     return {"success": True, "message": message, "data": data}
 
 
-def create_error_response(error: SwarmException, status_code: int = 500) -> Dict[str, Any]:
-    """Create a standardized error response"""
+def create_error_response(error: SwarmException) -> Dict[str, Any]:
+    """Create a standardized error response from a SwarmException instance."""
     return {
         "success": False,
         "error": {"code": error.error_code, "message": error.message, "details": error.details},
     }
 
-
-def success_response(data: Any, message: str = "Success") -> Dict[str, Any]:
-    """Create a standardized success response (alias for create_success_response)"""
-    return create_success_response(data, message)
-
-
-def error_response(
-    message: str, error_code: str = "ERROR", details: Dict[str, Any] = None
-) -> Dict[str, Any]:
-    """Create a standardized error response"""
-    return {
-        "success": False,
-        "error": {"code": error_code, "message": message, "details": details or {}},
-    }
+# success_response alias removed.
+# create_error_response signature changed (status_code parameter removed).
+# The error_response(message, error_code, details) function is now removed.
+# All routes should raise SwarmException or its derivatives.
+# The global error handler in main.py will use create_error_response(SwarmException)
+# or construct the JSON response directly.

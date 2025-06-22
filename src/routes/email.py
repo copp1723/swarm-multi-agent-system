@@ -4,12 +4,12 @@ Email Routes - API endpoints for email automation via Mailgun
 
 import logging
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request # jsonify removed, error_response import will be removed
 
 from src.config_flexible import get_config
-from src.exceptions import ServiceError, SwarmException
+from src.exceptions import ServiceError, SwarmException, ValidationError, EmailError # Added relevant exceptions
 from src.services.mailgun_service import EmailMessage, MailgunService
-from src.utils.response_helpers import error_response, success_response
+from src.utils.response_helpers import create_success_response # error_response import removed
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def send_email():
         data = request.get_json()
 
         if not data:
-            return error_response("Request body is required", "MISSING_BODY"), 400
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         # Extract email data
         to = data.get("to", [])
@@ -60,13 +60,13 @@ def send_email():
 
         # Validate required fields
         if not to:
-            return error_response("Recipients are required", "MISSING_RECIPIENTS"), 400
+            raise ValidationError("Recipients are required", error_code="MISSING_RECIPIENTS", details={"field": "to"})
 
         if not subject:
-            return error_response("Subject is required", "MISSING_SUBJECT"), 400
+            raise ValidationError("Subject is required", error_code="MISSING_SUBJECT", details={"field": "subject"})
 
         if not text_content and not html_content:
-            return error_response("Email content is required", "MISSING_CONTENT"), 400
+            raise ValidationError("Email content is required", error_code="MISSING_CONTENT", details={"fields": ["text_content", "html_content"]})
 
         # Create email message
         message = EmailMessage(
@@ -84,14 +84,14 @@ def send_email():
         )
 
         result = mailgun_service.send_email(message, agent_id)
-        return success_response(result)
-
-    except ServiceError as e:
-        logger.error(f"Service error sending email: {e}")
-        return error_response(e.message, e.error_code, e.details), 400
+        return create_success_response(result)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError is a SwarmException, re-raise
+        raise
     except Exception as e:
         logger.error(f"Unexpected error sending email: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Failed to send email due to an unexpected error", error_code="EMAIL_SEND_UNEXPECTED_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/send-template", methods=["POST"])
@@ -101,7 +101,7 @@ def send_template_email():
         data = request.get_json()
 
         if not data:
-            return error_response("Request body is required", "MISSING_BODY"), 400
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         template_name = data.get("template_name")
         recipients = data.get("recipients", [])
@@ -109,10 +109,10 @@ def send_template_email():
         agent_id = data.get("agent_id", "unknown")
 
         if not template_name:
-            return error_response("Template name is required", "MISSING_TEMPLATE_NAME"), 400
+            raise ValidationError("Template name is required", error_code="MISSING_TEMPLATE_NAME", details={"field": "template_name"})
 
         if not recipients:
-            return error_response("Recipients are required", "MISSING_RECIPIENTS"), 400
+            raise ValidationError("Recipients are required", error_code="MISSING_RECIPIENTS", details={"field": "recipients"})
 
         result = mailgun_service.send_template_email(
             template_name,
@@ -120,14 +120,14 @@ def send_template_email():
             variables,
             agent_id,
         )
-        return success_response(result)
-
-    except ServiceError as e:
-        logger.error(f"Service error sending template email: {e}")
-        return error_response(e.message, e.error_code, e.details), 400
+        return create_success_response(result)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError is a SwarmException, re-raise
+        raise
     except Exception as e:
         logger.error(f"Unexpected error sending template email: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Failed to send template email due to an unexpected error", error_code="EMAIL_TEMPLATE_UNEXPECTED_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/compose-ai", methods=["POST"])
@@ -137,14 +137,14 @@ def compose_ai_email():
         data = request.get_json()
 
         if not data:
-            return error_response("Request body is required", "MISSING_BODY"), 400
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         context = data.get("context", {})
         agent_id = data.get("agent_id", "email")
         send_immediately = data.get("send_immediately", False)
 
         if not context:
-            return error_response("Context is required for AI composition", "MISSING_CONTEXT"), 400
+            raise ValidationError("Context is required for AI composition", error_code="MISSING_CONTEXT", details={"field": "context"})
 
         # Compose email using AI
         message = mailgun_service.compose_ai_email(context, agent_id)
@@ -167,14 +167,14 @@ def compose_ai_email():
             result["sent"] = True
             result["send_result"] = send_result
 
-        return success_response(result)
-
-    except ServiceError as e:
-        logger.error(f"Service error composing AI email: {e}")
-        return error_response(e.message, e.error_code, e.details), 400
+        return create_success_response(result)
+    except ValidationError:
+        raise
+    except ServiceError: # ServiceError is a SwarmException, re-raise
+        raise
     except Exception as e:
         logger.error(f"Unexpected error composing AI email: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Failed to compose AI email due to an unexpected error", error_code="EMAIL_COMPOSE_AI_UNEXPECTED_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/status/<message_id>", methods=["GET"])
@@ -182,14 +182,12 @@ def get_delivery_status(message_id):
     """Get delivery status for a message"""
     try:
         result = mailgun_service.get_delivery_status(message_id)
-        return success_response({"status": result.__dict__})
-
-    except ServiceError as e:
-        logger.error(f"Service error getting delivery status: {e}")
-        return error_response(e.message, e.error_code, e.details), 400
+        return create_success_response({"status": result.__dict__})
+    except ServiceError: # ServiceError is a SwarmException, re-raise
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting delivery status: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Failed to get delivery status due to an unexpected error", error_code="EMAIL_STATUS_UNEXPECTED_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/webhooks/mailgun", methods=["POST"])
@@ -203,17 +201,19 @@ def mailgun_webhook():
 
         if not mailgun_service.verify_webhook(timestamp, token, signature):
             logger.warning("Invalid webhook signature")
-            return error_response("Invalid signature", "INVALID_SIGNATURE"), 401
+            # Using SwarmException directly as this is a security/auth type of error
+            raise SwarmException("Invalid webhook signature", error_code="INVALID_WEBHOOK_SIGNATURE", status_code=401)
 
         # Process webhook data
         webhook_data = request.get_json() or request.form.to_dict()
         result = mailgun_service.process_webhook(webhook_data)
 
-        return success_response(result)
-
+        return create_success_response(result)
+    except SwarmException: # Re-raise SwarmExceptions like the one from verify_webhook
+        raise
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
-        return error_response("Webhook processing failed", "WEBHOOK_ERROR"), 500
+        raise EmailError("Webhook processing failed", error_code="EMAIL_WEBHOOK_PROCESSING_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/templates", methods=["GET"])
@@ -234,11 +234,12 @@ def get_templates():
                 }
             )
 
-        return success_response({"templates": template_list})
-
+        return create_success_response({"templates": template_list})
+    except ServiceError: # If mailgun_service.get_templates() raises it
+        raise
     except Exception as e:
         logger.error(f"Error getting templates: {e}")
-        return error_response("Failed to get templates", "TEMPLATES_ERROR"), 500
+        raise EmailError("Failed to get templates", error_code="EMAIL_GET_TEMPLATES_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/templates", methods=["POST"])
@@ -248,7 +249,7 @@ def add_template():
         data = request.get_json()
 
         if not data:
-            return error_response("Request body is required", "MISSING_BODY"), 400
+            raise ValidationError("Request body is required", error_code="MISSING_BODY")
 
         name = data.get("name")
         subject = data.get("subject")
@@ -258,13 +259,13 @@ def add_template():
         description = data.get("description")
 
         if not name:
-            return error_response("Template name is required", "MISSING_NAME"), 400
+            raise ValidationError("Template name is required", error_code="MISSING_TEMPLATE_NAME", details={"field": "name"})
 
         if not subject:
-            return error_response("Template subject is required", "MISSING_SUBJECT"), 400
+            raise ValidationError("Template subject is required", error_code="MISSING_TEMPLATE_SUBJECT", details={"field": "subject"})
 
         if not text_content:
-            return error_response("Template text content is required", "MISSING_CONTENT"), 400
+            raise ValidationError("Template text content is required", error_code="MISSING_TEMPLATE_CONTENT", details={"field": "text_content"})
 
         # Create and add template
         from src.services.mailgun_service import EmailTemplate
@@ -280,11 +281,14 @@ def add_template():
 
         mailgun_service.add_template(template)
 
-        return success_response({"message": f"Template '{name}' added successfully"})
-
+        return create_success_response({"message": f"Template '{name}' added successfully"})
+    except ValidationError:
+        raise
+    except ServiceError: # If mailgun_service.add_template() raises it
+        raise
     except Exception as e:
         logger.error(f"Error adding template: {e}")
-        return error_response("Failed to add template", "ADD_TEMPLATE_ERROR"), 500
+        raise EmailError("Failed to add template", error_code="EMAIL_ADD_TEMPLATE_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/stats", methods=["GET"])
@@ -292,14 +296,12 @@ def get_domain_stats():
     """Get domain email statistics"""
     try:
         result = mailgun_service.get_domain_stats()
-        return success_response(result)
-
-    except ServiceError as e:
-        logger.error(f"Service error getting domain stats: {e}")
-        return error_response(e.message, e.error_code, e.details), 400
+        return create_success_response(result)
+    except ServiceError: # ServiceError is a SwarmException, re-raise
+        raise
     except Exception as e:
         logger.error(f"Unexpected error getting domain stats: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Failed to get domain stats", error_code="EMAIL_STATS_UNEXPECTED_ERROR", details={"original_error": str(e)})
 
 
 @email_bp.route("/health", methods=["GET"])
@@ -307,8 +309,9 @@ def health_check():
     """Health check for email service"""
     try:
         result = mailgun_service.health_check()
-        return success_response(result)
-
+        return create_success_response(result)
+    except ServiceError: # If health_check raises it
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in health check: {e}")
-        return error_response("Internal server error", "INTERNAL_ERROR"), 500
+        raise EmailError("Email service health check failed", error_code="EMAIL_HEALTH_CHECK_ERROR", details={"original_error": str(e)})
