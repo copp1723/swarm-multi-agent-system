@@ -115,6 +115,14 @@ You have access to a secure filesystem workspace for file operations:
 
 You can perform these operations directly - no need to ask for permission.
 """
+            except Exception as e:
+                logger.warning(f"Failed to get MCP filesystem stats: {e}")
+                mcp_capabilities = """
+
+## ⚠️ FILESYSTEM ACCESS LIMITED
+
+Filesystem access is available but stats unavailable. Basic file operations should work.
+"""
         else:
             mcp_capabilities = """
 
