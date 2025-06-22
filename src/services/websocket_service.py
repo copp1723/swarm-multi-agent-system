@@ -385,6 +385,7 @@ class SwarmWebSocketNamespace(Namespace):
                 "agent_id": agent_id,
                 "message_id": message.message_id,
                 "model": model,
+                "original_message": message.content,  # Store original message for fallback
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "active": True,
             }
@@ -468,36 +469,59 @@ class SwarmWebSocketNamespace(Namespace):
                     return
 
                 client_id = session["client_id"]
+                agent_id = session["agent_id"]
+
+                logger.info(f"🔄 Starting streaming response for session {session_id}")
 
                 # Stream response from OpenRouter
-                for chunk in openrouter_service.stream_chat_completion(messages, model):
-                    if not session.get("active", False):
-                        break
+                full_response = ""
+                chunk_count = 0
+                
+                try:
+                    for chunk in openrouter_service.stream_chat_completion(messages, model):
+                        if not session.get("active", False):
+                            logger.info(f"⏹️ Streaming session {session_id} deactivated, stopping")
+                            break
 
-                    # Extract content from chunk
-                    if chunk and "choices" in chunk and len(chunk["choices"]) > 0:
-                        delta = chunk["choices"][0].get("delta", {})
-                        content = delta.get("content", "")
+                        # Extract content from chunk
+                        if chunk and "choices" in chunk and len(chunk["choices"]) > 0:
+                            delta = chunk["choices"][0].get("delta", {})
+                            content = delta.get("content", "")
 
-                        if content:
-                            # Emit chunk to client
-                            self.socketio.emit(
-                                "response_stream_chunk",
-                                {
-                                    "session_id": session_id,
-                                    "chunk": content,
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                                },
-                                room=client_id,
-                                namespace="/swarm",
-                            )
+                            if content:
+                                chunk_count += 1
+                                full_response += content
+                                
+                                # Emit chunk to client
+                                self.socketio.emit(
+                                    "response_stream_chunk",
+                                    {
+                                        "session_id": session_id,
+                                        "chunk": content,
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    },
+                                    room=client_id,
+                                    namespace="/swarm",
+                                )
+                                
+                                logger.debug(f"📤 Sent chunk {chunk_count} to client {client_id}")
 
-                # End streaming
-                self._end_streaming_response(session_id)
+                    logger.info(f"✅ Streaming completed for session {session_id}. Total chunks: {chunk_count}, Response length: {len(full_response)}")
+                    
+                    # If we got a response, end streaming normally
+                    if full_response.strip():
+                        self._end_streaming_response(session_id)
+                    else:
+                        logger.warning(f"⚠️ Empty response received for session {session_id}")
+                        self._handle_streaming_error(session_id, "Empty response from OpenRouter API")
+                        
+                except Exception as streaming_error:
+                    logger.error(f"❌ OpenRouter streaming error for session {session_id}: {streaming_error}")
+                    self._handle_streaming_error(session_id, f"OpenRouter API error: {str(streaming_error)}")
 
         except Exception as e:
-            logger.error(f"❌ Stream agent response error: {e}")
-            self._handle_streaming_error(session_id, str(e))
+            logger.error(f"❌ Stream agent response error for session {session_id}: {e}")
+            self._handle_streaming_error(session_id, f"Streaming thread error: {str(e)}")
 
     def _end_streaming_response(self, session_id: str):
         """End streaming response"""
@@ -546,7 +570,7 @@ class SwarmWebSocketNamespace(Namespace):
             logger.error(f"❌ End streaming response error: {e}")
 
     def _handle_streaming_error(self, session_id: str, error_message: str):
-        """Handle streaming error"""
+        """Handle streaming error with fallback to non-streaming response"""
         try:
             session = self.streaming_sessions.get(session_id)
             if not session:
@@ -560,24 +584,78 @@ class SwarmWebSocketNamespace(Namespace):
             session["error"] = error_message
             session["ended_at"] = datetime.now(timezone.utc).isoformat()
 
-            # Emit error
-            self.socketio.emit(
-                "response_stream_error",
-                {
-                    "session_id": session_id,
-                    "agent_id": agent_id,
-                    "error": error_message,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-                room=client_id,
-                namespace="/swarm",
-            )
+            logger.error(f"❌ Streaming error for session {session_id}: {error_message}")
+
+            # Try fallback to non-streaming response
+            try:
+                logger.info(f"🔄 Attempting fallback non-streaming response for session {session_id}")
+                
+                # Get the original message from session metadata
+                original_message = session.get("original_message", "Hello")
+                
+                # Import here to avoid circular imports
+                from ..services.openrouter_service import OpenRouterService
+                
+                # Get OpenRouter service instance
+                openrouter_service = OpenRouterService()
+                
+                # Create agent context
+                agent_context = self._get_agent_context(agent_id)
+                
+                # Prepare messages for non-streaming
+                messages = [
+                    {"role": "system", "content": agent_context},
+                    {"role": "user", "content": original_message},
+                ]
+                
+                # Get non-streaming response
+                response = openrouter_service.chat_completion_with_messages(messages, session.get("model", "openai/gpt-4o"), stream=False)
+                
+                if response and response.content:
+                    # Send the complete response as a single message
+                    self.socketio.emit(
+                        "agent_message",
+                        {
+                            "message_id": str(uuid.uuid4()),
+                            "message_type": "agent_message",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "sender_id": agent_id,
+                            "sender_type": "agent",
+                            "content": response.content,
+                            "metadata": {"fallback_response": True, "original_error": error_message},
+                        },
+                        room=client_id,
+                        namespace="/swarm",
+                    )
+                    
+                    logger.info(f"✅ Fallback response sent successfully for session {session_id}")
+                else:
+                    raise Exception("Empty fallback response")
+                    
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback response also failed for session {session_id}: {fallback_error}")
+                
+                # Send error message to client
+                self.socketio.emit(
+                    "agent_message",
+                    {
+                        "message_id": str(uuid.uuid4()),
+                        "message_type": "agent_message",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "sender_id": agent_id,
+                        "sender_type": "agent",
+                        "content": "Sorry, I encountered an error while processing your request. Please try again.",
+                        "metadata": {"error": True, "error_message": error_message},
+                    },
+                    room=client_id,
+                    namespace="/swarm",
+                )
 
             # Update agent status back to idle
             self.update_agent_status(agent_id, AgentStatus.IDLE)
 
         except Exception as e:
-            logger.error(f"❌ Handle streaming error: {e}")
+            logger.error(f"❌ Handle streaming error failed: {e}")
 
     def _cleanup_streaming_sessions(self, client_id: str):
         """Clean up streaming sessions for disconnected client"""
