@@ -126,13 +126,44 @@ def create_app(test_config=None):
     app.register_blueprint(security_bp, url_prefix="/api/security")
     app.register_blueprint(websocket_bp, url_prefix="/api/websocket")
 
-    # Create database tables
+    # Create database tables with retry logic for Render deployment
     with app.app_context():
+        database_ready = False
         try:
-            db.create_all()
-            logger.info("Database tables created successfully")
+            # Check if we're using PostgreSQL (production) or SQLite (development)
+            if config.database.is_postgresql:
+                logger.info(f"Using PostgreSQL database: {config.database.url[:50]}...")
+                # For PostgreSQL, try to connect with retries
+                import time
+                max_retries = 5
+                for attempt in range(max_retries):
+                    try:
+                        # Test database connection first
+                        db.session.execute("SELECT 1")
+                        db.session.commit()
+                        # If connection works, create tables
+                        db.create_all()
+                        logger.info("PostgreSQL database tables created successfully")
+                        database_ready = True
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            logger.warning(f"Database connection attempt {attempt + 1} failed, retrying in 3 seconds: {e}")
+                            time.sleep(3)
+                        else:
+                            logger.error(f"Failed to connect to PostgreSQL database after {max_retries} attempts: {e}")
+                            logger.warning("Application will start without database - some features may not work")
+            else:
+                # SQLite for development
+                db.create_all()
+                logger.info("SQLite database tables created successfully")
+                database_ready = True
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
+            logger.warning("Application will start without database - some features may not work")
+        
+        # Store database status in app context
+        app.database_ready = database_ready
 
     # Global error handlers
     @app.errorhandler(SwarmException)

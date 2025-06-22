@@ -103,12 +103,17 @@ class FlexibleConfig:
     def _load_database_config(self) -> DatabaseConfig:
         """Load database configuration with fallback to SQLite"""
         database_url = os.getenv("DATABASE_URL")
-
-        if not database_url:
-            # Fallback to SQLite
-            sqlite_path = os.path.join(os.path.dirname(__file__), "..", "database", "app.db")
+        
+        if database_url:
+            logger.info(f"Using DATABASE_URL from environment: {database_url[:50]}...")
+        else:
+            # Fallback to SQLite in a writable location
+            import tempfile
+            sqlite_dir = os.path.join(tempfile.gettempdir(), "swarm_agents")
+            os.makedirs(sqlite_dir, exist_ok=True)
+            sqlite_path = os.path.join(sqlite_dir, "app.db")
             database_url = f"sqlite:///{sqlite_path}"
-            logger.info("No DATABASE_URL provided, using SQLite fallback")
+            logger.info(f"No DATABASE_URL provided, using SQLite fallback at {sqlite_path}")
 
         return DatabaseConfig(
             url=database_url,
