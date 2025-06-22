@@ -21,6 +21,7 @@ httpx==0.28.1
 
 # Production server
 gunicorn==21.2.0
+gevent==23.9.1
 eventlet==0.33.3
 
 # WebSocket support for real-time features

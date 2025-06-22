@@ -11,12 +11,14 @@ from src.models.user import User, db
 from src.services.auth_service import AuthUser, require_auth, require_permission, require_role
 from src.utils.response_helpers import success_response, error_response
 
+
 def validation_error_response(message: str, field: str = None):
     """Helper function for validation errors"""
-    error_data = {'message': message}
+    error_data = {"message": message}
     if field:
-        error_data['field'] = field
+        error_data["field"] = field
     return error_response(message, 400, error_data)
+
 
 logger = logging.getLogger(__name__)
 

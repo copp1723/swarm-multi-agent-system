@@ -30,8 +30,8 @@ class BaseService:
         self.session = requests.Session()
         # Get flexible configuration
         config = get_config()
-        self.session.timeout = getattr(config.api, 'api_timeout', 30)
-        self.max_retries = getattr(config.api, 'max_retries', 3)
+        self.session.timeout = getattr(config.api, "api_timeout", 30)
+        self.max_retries = getattr(config.api, "max_retries", 3)
 
     def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
         """Make HTTP request with proper error handling and retries"""

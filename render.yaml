@@ -8,7 +8,7 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       python -m compileall src/
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --worker-class eventlet --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100 --preload src.main:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --worker-class sync --threads 4 --max-requests 1000 --max-requests-jitter 100 --preload src.main:app
     healthCheckPath: /health
     autoDeploy: true
     envVars:

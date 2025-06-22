@@ -233,28 +233,28 @@ class OpenRouterService(BaseService):
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=30
+                timeout=30,
             )
-            
+
             response.raise_for_status()
 
             # Process streaming response
             for line in response.iter_lines():
                 if line:
-                    line = line.decode('utf-8')
-                    
+                    line = line.decode("utf-8")
+
                     # Skip empty lines and comments
-                    if not line.strip() or line.startswith('#'):
+                    if not line.strip() or line.startswith("#"):
                         continue
-                    
+
                     # Handle SSE format
-                    if line.startswith('data: '):
+                    if line.startswith("data: "):
                         data_str = line[6:]  # Remove 'data: ' prefix
-                        
+
                         # Check for end of stream
-                        if data_str.strip() == '[DONE]':
+                        if data_str.strip() == "[DONE]":
                             break
-                        
+
                         try:
                             chunk = json.loads(data_str)
                             yield chunk
@@ -292,12 +292,12 @@ class OpenRouterService(BaseService):
         if stream:
             full_content = ""
             for chunk in self.stream_chat_completion(messages, model):
-                if chunk and 'choices' in chunk and len(chunk['choices']) > 0:
-                    delta = chunk['choices'][0].get('delta', {})
-                    content = delta.get('content', '')
+                if chunk and "choices" in chunk and len(chunk["choices"]) > 0:
+                    delta = chunk["choices"][0].get("delta", {})
+                    content = delta.get("content", "")
                     if content:
                         full_content += content
-            
+
             return ChatResponse(content=full_content, model=model)
 
         # Convert to ChatMessage objects for regular completion
@@ -330,6 +330,5 @@ class OpenRouterService(BaseService):
             "openai/gpt-4o-mini",
             "meta-llama/llama-3.1-70b-instruct",
             "mistralai/mistral-large",
-            "cohere/command-r-plus"
+            "cohere/command-r-plus",
         ]
-

@@ -1,11 +1,10 @@
 import os
 import sys
+import logging
+from datetime import datetime, timezone
 
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-import logging
-from datetime import datetime, timezone
 
 # Initialize Sentry before Flask app
 import sentry_sdk
@@ -46,17 +45,17 @@ logger = logging.getLogger(__name__)
 
 def create_app(test_config=None):
     """Application factory pattern"""
-    
+
     # Initialize Sentry for error tracking and performance monitoring
     sentry_logging = LoggingIntegration(
-        level=logging.INFO,        # Capture info and above as breadcrumbs
-        event_level=logging.ERROR  # Send errors as events
+        level=logging.INFO,  # Capture info and above as breadcrumbs
+        event_level=logging.ERROR,  # Send errors as events
     )
-    
+
     sentry_sdk.init(
         dsn="https://2a6537a86356e27f4f6d4c351738cc25@o4509531702624256.ingest.us.sentry.io/4509539992862720",
         integrations=[
-            FlaskIntegration(transaction_style='endpoint'),
+            FlaskIntegration(transaction_style="endpoint"),
             sentry_logging,
         ],
         # Performance Monitoring
@@ -70,7 +69,7 @@ def create_app(test_config=None):
         attach_stacktrace=True,
         max_breadcrumbs=50,
     )
-    
+
     app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), "static"))
 
     # Load configuration
@@ -103,7 +102,7 @@ def create_app(test_config=None):
     )
 
     security_service = SecurityHardeningService(config.to_dict())
-    
+
     # Initialize WebSocket service
     websocket_service = WebSocketService(app)
 
@@ -136,6 +135,7 @@ def create_app(test_config=None):
                 # For PostgreSQL, try to connect with retries
                 import time
                 from sqlalchemy import text
+
                 max_retries = 5
                 for attempt in range(max_retries):
                     try:
@@ -149,11 +149,17 @@ def create_app(test_config=None):
                         break
                     except Exception as e:
                         if attempt < max_retries - 1:
-                            logger.warning(f"Database connection attempt {attempt + 1} failed, retrying in 3 seconds: {e}")
+                            logger.warning(
+                                f"Database connection attempt {attempt + 1} failed, retrying in 3 seconds: {e}"
+                            )
                             time.sleep(3)
                         else:
-                            logger.error(f"Failed to connect to PostgreSQL database after {max_retries} attempts: {e}")
-                            logger.warning("Application will start without database - some features may not work")
+                            logger.error(
+                                f"Failed to connect to PostgreSQL database after {max_retries} attempts: {e}"
+                            )
+                            logger.warning(
+                                "Application will start without database - some features may not work"
+                            )
             else:
                 # SQLite for development
                 db.create_all()
@@ -162,7 +168,7 @@ def create_app(test_config=None):
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
             logger.warning("Application will start without database - some features may not work")
-        
+
         # Store database status in app context
         app.database_ready = database_ready
 
@@ -244,6 +250,7 @@ def create_app(test_config=None):
             db_status = "healthy"
             try:
                 from sqlalchemy import text
+
                 db.session.execute(text("SELECT 1"))
                 db.session.commit()
             except Exception as e:
@@ -262,14 +269,11 @@ def create_app(test_config=None):
                         "status": db_status,
                         "type": "postgresql" if config.database.is_postgresql else "sqlite",
                     },
-                    "services": {
-                        "enabled": enabled_services,
-                        "count": len(enabled_services)
-                    },
+                    "services": {"enabled": enabled_services, "count": len(enabled_services)},
                     "features": {
                         "user_registration": True,
                         "websocket_support": True,
-                        "streaming_responses": True
+                        "streaming_responses": True,
                     },
                     "system_health": "operational",
                 }
@@ -323,11 +327,11 @@ def create_app(test_config=None):
                     "features": {
                         "user_registration": True,
                         "websocket_support": True,
-                        "streaming_responses": True
+                        "streaming_responses": True,
                     },
                     "services": {
                         "enabled": config.get_enabled_services(),
-                        "count": len(config.get_enabled_services())
+                        "count": len(config.get_enabled_services()),
                     },
                     "version": "2.0.0",
                     "environment": "production" if not config.debug else "development",
