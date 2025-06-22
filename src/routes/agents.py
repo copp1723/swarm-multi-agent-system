@@ -388,3 +388,82 @@ def clear_agent_memory_route(agent_id: str):
     except Exception as e:
         logger.error(f"Unexpected error clearing memory for {agent_id}: {e}")
         return create_error_response(SwarmException("Internal server error", "INTERNAL_ERROR"), 500)
+
+
+@agents_bp.route("/test-openrouter", methods=["GET", "POST"])
+def test_openrouter():
+    """Test OpenRouter API connection and headers"""
+    try:
+        # For GET request, test fetching available models
+        if request.method == "GET":
+            models = openrouter_service.get_available_models()
+            return jsonify(
+                create_success_response(
+                    {
+                        "connection": "success",
+                        "models_count": len(models),
+                        "sample_models": [
+                            {"id": model.id, "name": model.name}
+                            for model in models[:5]
+                        ],
+                        "headers_configured": {
+                            "Authorization": "Bearer [REDACTED]",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://swarm-agents-web.onrender.com",
+                            "X-Title": "Swarm Multi-Agent System"
+                        }
+                    },
+                    "OpenRouter API test successful"
+                )
+            )
+        
+        # For POST request, test chat completion
+        else:
+            data = request.get_json() or {}
+            test_message = data.get("message", "Hello, this is a test message. Please respond briefly.")
+            model = data.get("model", "openai/gpt-4o-mini")
+            
+            # Create test messages
+            from src.services.openrouter_service import ChatMessage
+            messages = [
+                ChatMessage(
+                    role="system",
+                    content="You are a helpful assistant. Respond briefly to test messages."
+                ),
+                ChatMessage(
+                    role="user",
+                    content=test_message
+                )
+            ]
+            
+            # Test chat completion
+            response = openrouter_service.chat_completion(messages, model)
+            
+            return jsonify(
+                create_success_response(
+                    {
+                        "connection": "success",
+                        "model_used": response.model,
+                        "response": response.content,
+                        "usage": response.usage,
+                        "headers_used": {
+                            "Authorization": "Bearer [REDACTED]",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://swarm-agents-web.onrender.com",
+                            "X-Title": "Swarm Multi-Agent System"
+                        }
+                    },
+                    "OpenRouter API chat test successful"
+                )
+            )
+            
+    except Exception as e:
+        logger.error(f"OpenRouter test failed: {e}")
+        return create_error_response(
+            SwarmException(
+                f"OpenRouter test failed: {str(e)}",
+                "OPENROUTER_TEST_ERROR",
+                {"error": str(e)}
+            ),
+            500
+        )

@@ -69,7 +69,7 @@ class OpenRouterService(BaseService):
         self.headers = {
             "Authorization": f"Bearer {config.api.openrouter_api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://swarm-agents.local",
+            "HTTP-Referer": "https://swarm-agents-web.onrender.com",
             "X-Title": "Swarm Multi-Agent System",
         }
         self._models_cache = None
