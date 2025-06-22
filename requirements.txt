@@ -7,7 +7,7 @@ Flask-SQLAlchemy==3.1.1
 Werkzeug==3.0.1
 
 # Database drivers
-psycopg2-binary==2.9.10  # PostgreSQL driver
+psycopg2-binary==2.9.10
 SQLAlchemy==2.0.23
 
 # Authentication and security
@@ -21,31 +21,22 @@ httpx==0.28.1
 
 # Production server
 gunicorn==21.2.0
+eventlet==0.33.3
 
-# Development and testing tools
-pytest==7.4.3
-pytest-cov==4.1.0
-pytest-flask==1.3.0
-pytest-mock==3.12.0
-coverage==7.3.2
-
-# Code quality tools
-black==25.1.0
-isort==6.0.1
-flake8==7.3.0
-mypy==1.16.1
-bandit==1.8.5
-safety==3.5.2
-pre-commit==4.2.0
-
-# Optional: Redis for caching and sessions
-redis==5.0.1
-
-# Optional: WebSocket support for real-time features
+# WebSocket support for real-time features
 Flask-SocketIO==5.3.6
 python-socketio==5.10.0
+
+# Redis for caching and sessions
+redis==5.0.1
 
 # Utilities
 python-dotenv==1.0.0
 click==8.1.8
+
+# Development tools (optional for production)
+pytest==7.4.3
+black==25.1.0
+isort==6.0.1
+flake8==7.3.0
 
