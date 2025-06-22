@@ -7,6 +7,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import logging
 from datetime import datetime, timezone
 
+# Initialize Sentry before Flask app
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -41,6 +46,31 @@ logger = logging.getLogger(__name__)
 
 def create_app(test_config=None):
     """Application factory pattern"""
+    
+    # Initialize Sentry for error tracking and performance monitoring
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,        # Capture info and above as breadcrumbs
+        event_level=logging.ERROR  # Send errors as events
+    )
+    
+    sentry_sdk.init(
+        dsn="https://2a6537a86356e27f4f6d4c351738cc25@o4509531702624256.ingest.us.sentry.io/4509539992862720",
+        integrations=[
+            FlaskIntegration(transaction_style='endpoint'),
+            sentry_logging,
+        ],
+        # Performance Monitoring
+        traces_sample_rate=0.1,  # Capture 10% of transactions for performance monitoring
+        # Release tracking
+        release="swarm-multi-agent-system@2.0.0",
+        environment="production",
+        # Add data like request headers and IP for users
+        send_default_pii=True,
+        # Additional options
+        attach_stacktrace=True,
+        max_breadcrumbs=50,
+    )
+    
     app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), "static"))
 
     # Load configuration
@@ -219,6 +249,14 @@ def create_app(test_config=None):
                 ),
                 500,
             )
+
+    # Sentry test endpoint (remove in production)
+    @app.route("/sentry-debug")
+    def trigger_error():
+        """Test endpoint to verify Sentry integration"""
+        logger.info("Sentry test endpoint triggered")
+        division_by_zero = 1 / 0  # This will trigger a Sentry error
+        return "This should not be reached"
 
     # Serve static files
     @app.route("/")

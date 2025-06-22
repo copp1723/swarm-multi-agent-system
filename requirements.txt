@@ -30,6 +30,9 @@ python-socketio==5.10.0
 # Redis for caching and sessions
 redis==5.0.1
 
+# Error tracking and monitoring
+sentry-sdk[flask]==2.30.0
+
 # Utilities
 python-dotenv==1.0.0
 click==8.1.8
