@@ -81,4 +81,4 @@ databases:
     databaseName: swarm_agents
     user: swarm_agents_user
     region: oregon
-    plan: basic-256
+    plan: starter
